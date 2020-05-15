@@ -10,8 +10,9 @@ import (
 )
 
 type ThumbCrawler struct {
-	Out  string
-	Page int
+	Out      string
+	Page     int
+	Excluded []*url.URL
 }
 
 func (r *ThumbCrawler) Crawl(url *url.URL) error {
@@ -54,6 +55,9 @@ func (r *ThumbCrawler) Crawl(url *url.URL) error {
 						break
 					}
 				}
+				if r.isExcluded(dl) {
+					break
+				}
 				if err := DownloadURL(dl, dlpath); err != nil {
 					fmt.Fprintf(os.Stderr, "download failed: %s: %v\n", dlpath, err)
 					break
@@ -65,4 +69,13 @@ func (r *ThumbCrawler) Crawl(url *url.URL) error {
 	}
 	r.Page++
 	return nil
+}
+
+func (r *ThumbCrawler) isExcluded(url *url.URL) bool {
+	for _, exurl := range r.Excluded {
+		if exurl.String() == url.String() {
+			return true
+		}
+	}
+	return false
 }

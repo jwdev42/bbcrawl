@@ -20,13 +20,13 @@ func main() {
 	if err := validateCmdline(flags); err != nil {
 		eexit(fmt.Errorf("command line validation error: %v", err))
 	}
-	err = crawlUnknownThumb(flags.out.Path, flags.thread.URL, flags.start, flags.end, flags.posts)
+	err = crawlUnknownThumb(flags.out.Path, flags.thread.URL, flags.start, flags.end, flags.posts, flags.excluded.URLs)
 	if err != nil {
 		eexit(fmt.Errorf("crawler failed: %v\n", err))
 	}
 }
 
-func crawlUnknownThumb(outputDir string, thread *url.URL, firstPage int, lastPage int, posts int) error {
+func crawlUnknownThumb(outputDir string, thread *url.URL, firstPage int, lastPage int, posts int, excluded []*url.URL) error {
 	if len(outputDir) == 0 {
 		var err error
 		outputDir, err = os.Getwd()
@@ -42,8 +42,9 @@ func crawlUnknownThumb(outputDir string, thread *url.URL, firstPage int, lastPag
 			Thread: thread,
 		},
 		Crawler: &libcrawl.ThumbCrawler{
-			Out:  outputDir,
-			Page: firstPage,
+			Out:      outputDir,
+			Page:     firstPage,
+			Excluded: excluded,
 		},
 	}
 	return libcrawl.Crawl(context)
