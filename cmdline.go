@@ -32,7 +32,7 @@ func parseCmdline() (*cmdflags, error) {
 	fs.IntVar(&flags.posts, "p", -1, "amount of posts on a page")
 	fs.Var(flags.out, "o", "output directory")
 	fs.Var(flags.thread, "t", "thread to dump")
-	fs.Var(flags.excluded, "-exclude", "comma-seperated list of urls to ignore")
+	fs.Var(flags.excluded, "exclude", "comma-seperated list of urls to ignore")
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return nil, err
 	}
@@ -41,16 +41,16 @@ func parseCmdline() (*cmdflags, error) {
 
 func validateCmdline(flags *cmdflags) error {
 	if flags.start < 1 {
-		errors.New("start value not set or less then 1")
+		return errors.New("start value not set or less then 1")
 	}
 	if flags.end < 1 {
-		errors.New("end value not set or less then 1")
+		return errors.New("end value not set or less then 1")
 	}
 	if flags.end < flags.start {
-		errors.New("end cannot be greater than start")
+		return errors.New("end cannot be greater than start")
 	}
 	if flags.posts < 1 {
-		errors.New("amount of posts not set or less then 1")
+		return errors.New("amount of posts not set or less then 1")
 	}
 	return nil
 }
