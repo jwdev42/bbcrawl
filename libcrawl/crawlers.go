@@ -29,6 +29,7 @@ type baseCrawler struct {
 	client        *http.Client
 	cc            *CrawlContext
 	cookie_setup  bool
+	debug         bool
 	download_jobs int
 	excluded      []*url.URL
 	redirect      func(*http.Request, []*http.Request) error
@@ -101,9 +102,11 @@ func (c *baseCrawler) SetOptions(args []string) error {
 	} else {
 		c.redirect = noRedirect
 	}
+	c.debug = *common.debugMode
 	return nil
 }
 
+//FileCrawler is a crawler that treats every input from the pager as a file that needs to be downloaded.
 type FileCrawler struct {
 	*baseCrawler
 }
@@ -154,6 +157,7 @@ func (r *ImageCrawler) SetOptions(args []string) error {
 	} else {
 		r.redirect = noRedirect
 	}
+	r.debug = *common.debugMode
 	r.attrs = cmdAttrs2htmlAttrs(cmd_attrs)
 	return nil
 }
@@ -261,6 +265,7 @@ func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
 	} else {
 		r.redirect = noRedirect
 	}
+	r.debug = *common.debugMode
 	return nil
 }
 
@@ -379,12 +384,14 @@ func (r *vb4attachment) href() (*url.URL, error) {
 type commonCrawlerFlags struct {
 	excludedURLs  cmdline.URLCollection
 	allowRedirect *bool
+	debugMode     *bool
 }
 
 func addCommonCrawlerFlags(set *flag.FlagSet) *commonCrawlerFlags {
 	res := commonCrawlerFlags{}
 	set.Var(&res.excludedURLs, "exclude", "Comma-separated list of URLs that won't be downloaded")
 	res.allowRedirect = set.Bool("redirect", true, "Allow or deny redirects")
+	res.debugMode = set.Bool("debug", false, "Enable extra debugging code for the crawler")
 	return &res
 }
 
