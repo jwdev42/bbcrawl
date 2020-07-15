@@ -21,7 +21,7 @@ const (
 	CRAWLER_IMAGE           = "img"
 )
 
-var vb4_regex_postid *regexp.Regexp = regexp.MustCompile("^post_[0-9]+$")
+var vb4_regex_postid *regexp.Regexp = regexp.MustCompile("^post_?[0-9]+$")
 var vb4_regex_attachmentid *regexp.Regexp = regexp.MustCompile("^attachment[0-9]+$")
 
 type baseCrawler struct {
@@ -225,7 +225,7 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 		return err
 	}
 	dispatcher := download.NewDownloadDispatcher(r.download_jobs)
-	posts := vb4PostList(body)
+	posts := r.vb4PostList(body)
 	for _, post := range posts {
 		atts := post.attachments()
 		for _, att := range atts {
@@ -263,7 +263,7 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 	return nil
 }
 
-func vb4PostList(node *html.Node) []*vb4post {
+func (r *VB4AttachmentCrawler) vb4PostList(node *html.Node) []*vb4post {
 	const searchForID string = "posts"
 	posts := elementByID(node, searchForID)
 	if posts == nil {
@@ -274,7 +274,10 @@ func vb4PostList(node *html.Node) []*vb4post {
 	vb4posts := make([]*vb4post, len(nc.nodes))
 	for i := range nc.nodes {
 		vb4posts[i] = (*vb4post)(nc.nodes[i])
-		log.Debug(fmt.Sprintf("VB4AttachmentCrawler: Added post %q", vb4posts[i].id()))
+		if log.Level() == logger.Level_Debug {
+			page := r.cc.Pager.PageNum()
+			log.Debug(fmt.Sprintf("VB4AttachmentCrawler: Page %d, found post %q", page, vb4posts[i].id()))
+		}
 	}
 	return vb4posts
 }
@@ -282,8 +285,8 @@ func vb4PostList(node *html.Node) []*vb4post {
 func (r *vb4post) id() string {
 	for _, a := range r.Attr {
 		if a.Key == "id" && vb4_regex_postid.MatchString(a.Val) {
-			splitted := strings.Split(a.Val, "_")
-			return splitted[1]
+			re := regexp.MustCompile(`[0-9]+`)
+			return re.FindString(a.Val)
 		}
 	}
 	return ""
@@ -294,6 +297,16 @@ func (r *vb4post) attachments() []*vb4attachment {
 	vb4att := make([]*vb4attachment, len(nc.nodes))
 	for i := range nc.nodes {
 		vb4att[i] = (*vb4attachment)(nc.nodes[i])
+		if log.Level() == logger.Level_Debug {
+			var id string
+			for _, attr := range nc.nodes[i].Attr {
+				if attr.Key == "id" {
+					id = attr.Val
+					break
+				}
+			}
+			log.Debug(fmt.Sprintf("VB4AttachmentCrawler: Found attachment %q", id))
+		}
 	}
 	return vb4att
 }
