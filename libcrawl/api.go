@@ -7,8 +7,8 @@ import (
 	"github.com/jwdev42/bbcrawl/global"
 	"github.com/jwdev42/cookiefile"
 	"github.com/jwdev42/logger"
-	"net/url"
 	"net/http"
+	"net/url"
 )
 
 const DEFAULT_DL_JOBS = 5
@@ -16,15 +16,15 @@ const DEFAULT_REDIRECTS = 10
 
 var log = global.GetLogger()
 
-var pagers = map[string]func(*CrawlContext) PagerInterface {
-	PAGER_VB4: NewVB4Pager,
+var pagers = map[string]func(*CrawlContext) PagerInterface{
+	PAGER_VB4:       NewVB4Pager,
 	PAGER_UNKNOWNBB: NewUnknownBBPager,
-	PAGER_QUERY: NewQueryPager,
+	PAGER_QUERY:     NewQueryPager,
 }
 
-var crawlers = map[string]func(*CrawlContext) (CrawlerInterface, error) {
+var crawlers = map[string]func(*CrawlContext) (CrawlerInterface, error){
 	CRAWLER_VB4_ATTACHMENTS: NewVB4AttachmentCrawler,
-	CRAWLER_IMAGE: NewImageCrawler,
+	CRAWLER_IMAGE:           NewImageCrawler,
 }
 
 type PagerInterface interface {

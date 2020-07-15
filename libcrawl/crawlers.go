@@ -3,9 +3,9 @@ package libcrawl
 import (
 	"flag"
 	"fmt"
-	"github.com/jwdev42/logger"
 	"github.com/jwdev42/bbcrawl/cmdline"
 	"github.com/jwdev42/bbcrawl/libcrawl/download"
+	"github.com/jwdev42/logger"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"golang.org/x/net/publicsuffix"
@@ -25,20 +25,20 @@ var vb4_regex_postid *regexp.Regexp = regexp.MustCompile("^post_[0-9]+$")
 var vb4_regex_attachmentid *regexp.Regexp = regexp.MustCompile("^attachment[0-9]+$")
 
 type baseCrawler struct {
-	client *http.Client
-	cc *CrawlContext
-	cookie_setup bool
+	client        *http.Client
+	cc            *CrawlContext
+	cookie_setup  bool
 	download_jobs int
-	excluded []*url.URL
-	redirect func(*http.Request, []*http.Request)error
+	excluded      []*url.URL
+	redirect      func(*http.Request, []*http.Request) error
 }
 
 func newBaseCrawler(cc *CrawlContext) *baseCrawler {
 	return &baseCrawler{
 		cc: cc, client: new(http.Client),
 		download_jobs: DEFAULT_DL_JOBS,
-		excluded: make([]*url.URL,0,1),
-		redirect: logRedirect,
+		excluded:      make([]*url.URL, 0, 1),
+		redirect:      logRedirect,
 	}
 }
 
@@ -52,7 +52,7 @@ func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	//setup cookie jar if none exists
 	if c.client.Jar == nil {
 		jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
@@ -74,7 +74,7 @@ func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
 }
 
 //redirection sets the optional redirection handler function for the crawler's http.Client
-func (c *baseCrawler) redirection(redirect func(*http.Request, []*http.Request)error) {
+func (c *baseCrawler) redirection(redirect func(*http.Request, []*http.Request) error) {
 	c.client.CheckRedirect = redirect
 }
 
@@ -84,7 +84,7 @@ type ImageCrawler struct {
 }
 
 func NewImageCrawler(cc *CrawlContext) (CrawlerInterface, error) {
-	crawler := &ImageCrawler {
+	crawler := &ImageCrawler{
 		baseCrawler: newBaseCrawler(cc),
 	}
 	return crawler, nil
@@ -195,7 +195,7 @@ type vb4post html.Node
 type vb4attachment html.Node
 
 func NewVB4AttachmentCrawler(cc *CrawlContext) (CrawlerInterface, error) {
-	crawler := &VB4AttachmentCrawler{ baseCrawler: newBaseCrawler(cc)}
+	crawler := &VB4AttachmentCrawler{baseCrawler: newBaseCrawler(cc)}
 	return crawler, nil
 }
 
@@ -253,7 +253,7 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 	}
 	dispatcher.Close()
 	dls := dispatcher.Collect()
-		for _, dl := range dls {
+	for _, dl := range dls {
 		if dl.Err != nil {
 			log.Error(fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
 		} else {
@@ -311,11 +311,10 @@ func (r *vb4attachment) href() (*url.URL, error) {
 	return nil, nil
 }
 
-
 /* functions and types that can be used by all crawlers: */
 
 type commonCrawlerFlags struct {
-	excludedURLs cmdline.URLCollection
+	excludedURLs  cmdline.URLCollection
 	allowRedirect *bool
 }
 
@@ -327,10 +326,10 @@ func addCommonCrawlerFlags(set *flag.FlagSet) *commonCrawlerFlags {
 }
 
 func cmdAttrs2htmlAttrs(attrs_cmd cmdline.Attrs) []html.Attribute {
-	attrs_html := make([]html.Attribute,0,10)
+	attrs_html := make([]html.Attribute, 0, 10)
 	for key, vals := range attrs_cmd {
 		for _, val := range vals {
-			attr := html.Attribute {
+			attr := html.Attribute{
 				Key: key,
 				Val: val,
 			}

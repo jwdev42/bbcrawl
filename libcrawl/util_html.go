@@ -1,8 +1,8 @@
 package libcrawl
 
 import (
-	"golang.org/x/net/html/atom"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 	"regexp"
 )
 

@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/jwdev42/bbcrawl/global"
 	"github.com/jwdev42/bbcrawl/cmdline"
+	"github.com/jwdev42/bbcrawl/global"
 	"github.com/jwdev42/bbcrawl/libcrawl"
 	"os"
 	"time"

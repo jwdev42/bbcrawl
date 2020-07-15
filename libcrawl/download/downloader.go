@@ -1,19 +1,19 @@
 package download
 
 import (
-	"net/url"
-	"net/http"
-	"os"
-	"io"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
 	"sync"
 	"time"
 )
 
 type threadcounter struct {
-	m *sync.Mutex
+	m       *sync.Mutex
 	counter int
-	max int
+	max     int
 }
 
 func (r *threadcounter) inc() bool {
@@ -45,26 +45,26 @@ func (r *threadcounter) zero() bool {
 }
 
 type Download struct {
-	Client *http.Client
-	Addr *url.URL
-	File string
+	Client        *http.Client
+	Addr          *url.URL
+	File          string
 	AllowOverride bool
-	Err error
+	Err           error
 }
 
 type DownloadDispatcher struct {
-	max int
-	counter *threadcounter
-	resc chan *Download //yields the state of finished download routines
-	finished []*Download //collector will receive messages from resc and write it into finished
+	max      int
+	counter  *threadcounter
+	resc     chan *Download //yields the state of finished download routines
+	finished []*Download    //collector will receive messages from resc and write it into finished
 }
 
 func NewDownloadDispatcher(downloads int) *DownloadDispatcher {
-	dd := DownloadDispatcher {
-		max: downloads,
-		counter: &threadcounter{ m: new(sync.Mutex), max: downloads },
-		resc: make(chan *Download, downloads),
-		finished: make([]*Download,0,downloads * 2),
+	dd := DownloadDispatcher{
+		max:      downloads,
+		counter:  &threadcounter{m: new(sync.Mutex), max: downloads},
+		resc:     make(chan *Download, downloads),
+		finished: make([]*Download, 0, downloads*2),
 	}
 	go dd.collector()
 	return &dd

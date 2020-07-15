@@ -12,13 +12,17 @@ import (
 const (
 	PAGER_UNKNOWNBB = "unknownbb"
 	PAGER_VB4       = "vb4"
-	PAGER_QUERY       = "query"
+	PAGER_QUERY     = "query"
 )
 
 type QueryPager struct {
-	counter struct{ id string; val int; limit int }
+	counter struct {
+		id    string
+		val   int
+		limit int
+	}
 	thread *url.URL
-	query url.Values
+	query  url.Values
 	cc     *CrawlContext
 }
 
@@ -73,13 +77,13 @@ func (r *QueryPager) SetUrl(addr string) error {
 	var u_str, q_str string
 	s := strings.SplitN(addr, "?", 2)
 	switch len(s) {
-		case 2:
-			q_str = s[1]
-			fallthrough
-		case 1:
-			u_str = s[0]
-		default:
-			panic("You are not supposed to be here!")
+	case 2:
+		q_str = s[1]
+		fallthrough
+	case 1:
+		u_str = s[0]
+	default:
+		panic("You are not supposed to be here!")
 	}
 	u, err := url_for_pager(u_str)
 	if err != nil {
