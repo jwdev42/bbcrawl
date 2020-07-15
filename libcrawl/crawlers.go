@@ -79,19 +79,13 @@ func (c *baseCrawler) redirection(redirect func(*http.Request, []*http.Request)e
 }
 
 type ImageCrawler struct {
-	client *http.Client
-	download_jobs int
-	excluded []*url.URL
-	redirect bool
+	*baseCrawler
 	attrs []html.Attribute
-	cc *CrawlContext
 }
 
 func NewImageCrawler(cc *CrawlContext) (CrawlerInterface, error) {
 	crawler := &ImageCrawler {
-		cc: cc,
-		client: new(http.Client),
-		download_jobs: DEFAULT_DL_JOBS,
+		baseCrawler: newBaseCrawler(cc),
 	}
 	return crawler, nil
 }
@@ -105,7 +99,11 @@ func (r *ImageCrawler) SetOptions(args []string) error {
 		return err
 	}
 	r.excluded = common.excludedURLs.URLs
-	r.redirect = *common.allowRedirect
+	if *common.allowRedirect {
+		r.redirect = logRedirect
+	} else {
+		r.redirect = noRedirect
+	}
 	r.attrs = cmdAttrs2htmlAttrs(cmd_attrs)
 	return nil
 }
@@ -114,7 +112,7 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 	const imgtag string = "img"
 	picid := 1
 	page := r.cc.Pager.PageNum()
-	resp, err := http.Get(url.String())
+	resp, err := r.getPage(url)
 	if err != nil {
 		return err
 	}
