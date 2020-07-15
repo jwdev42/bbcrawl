@@ -196,11 +196,7 @@ type vb4attachment html.Node
 
 func NewVB4AttachmentCrawler(cc *CrawlContext) (CrawlerInterface, error) {
 	crawler := &VB4AttachmentCrawler{ baseCrawler: newBaseCrawler(cc)}
-	_, ok := crawler.cc.Pager.(*VB4Pager)
-	if ok {
-		return crawler, nil
-	}
-	return nil, fmt.Errorf("Crawler %q: Incompatible pager type", CRAWLER_VB4_ATTACHMENTS)
+	return crawler, nil
 }
 
 func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
