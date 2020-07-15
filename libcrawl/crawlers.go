@@ -196,7 +196,7 @@ type vb4attachment html.Node
 
 func NewVB4AttachmentCrawler(cc *CrawlContext) (CrawlerInterface, error) {
 	crawler := &VB4AttachmentCrawler{ baseCrawler: newBaseCrawler(cc)}
-	_, ok := crawler.baseCrawler.cc.Pager.(*VB4Pager)
+	_, ok := crawler.cc.Pager.(*VB4Pager)
 	if ok {
 		return crawler, nil
 	}
@@ -209,17 +209,17 @@ func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
 	if err := set.Parse(args); err != nil {
 		return err
 	}
-	r.baseCrawler.excluded = common.excludedURLs.URLs
+	r.excluded = common.excludedURLs.URLs
 	if *common.allowRedirect {
-		r.baseCrawler.redirect = logRedirect
+		r.redirect = logRedirect
 	} else {
-		r.baseCrawler.redirect = noRedirect
+		r.redirect = noRedirect
 	}
 	return nil
 }
 
 func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
-	resp, err := r.baseCrawler.getPage(url)
+	resp, err := r.getPage(url)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 	if err != nil {
 		return err
 	}
-	dispatcher := download.NewDownloadDispatcher(r.baseCrawler.download_jobs)
+	dispatcher := download.NewDownloadDispatcher(r.download_jobs)
 	posts := vb4PostList(body)
 	for _, post := range posts {
 		atts := post.attachments()
@@ -245,13 +245,13 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 					continue
 				}
 			}
-			dl := &download.Download{Client: r.baseCrawler.client, Addr: attUrl}
+			dl := &download.Download{Client: r.client, Addr: attUrl}
 			name := fileNameFromURL(attUrl)
 			if name == "" {
 				printFetchError(attUrl)
 				continue
 			}
-			dl.File = fmt.Sprintf("%s/%s", r.baseCrawler.cc.output, name)
+			dl.File = fmt.Sprintf("%s/%s", r.cc.output, name)
 			dispatcher.Dispatch(dl)
 		}
 	}
