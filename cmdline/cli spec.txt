@@ -1,0 +1,13 @@
+Uchar = /* All Unicode Characters that are no whitespace or newline */ .
+Uchar_Minusless = /* Uchar_Letter without "-" */ .
+EOS = /* End of stream */ .
+Url = /* Valid absolute http or https Url "-" */ .
+EndUrl =  Url EOS .
+Switch = '-' Uchar_Minusless { Uchar } .
+BareArg = Uchar_Minusless { Uchar } .
+Arg = BareArg | Url .
+Flag = Switch Arg .
+GlobalSet = [ Flag Arg ] { Flag Arg } "-pager" Arg .
+PagerSet = [ Flag Arg ] { Flag Arg } "-crawler" Arg .
+CrawlerSet = [ Flag Arg ] { Flag Arg } .
+ThreadSet = EndUrl .

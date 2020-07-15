@@ -1,23 +1,119 @@
 package libcrawl
 
 import (
+	"flag"
 	"fmt"
+	"github.com/jwdev42/logger"
+	"github.com/jwdev42/bbcrawl/cmdline"
+	"github.com/jwdev42/bbcrawl/libcrawl/download"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
+	"golang.org/x/net/publicsuffix"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
-	"os"
+	"regexp"
 	"strings"
 )
 
-type ThumbCrawler struct {
-	Out      string
-	Page     int
-	Excluded []*url.URL
+const (
+	CRAWLER_VB4_ATTACHMENTS = "vb4-attachments"
+	CRAWLER_IMAGE           = "img"
+)
+
+var vb4_regex_postid *regexp.Regexp = regexp.MustCompile("^post_[0-9]+$")
+var vb4_regex_attachmentid *regexp.Regexp = regexp.MustCompile("^attachment[0-9]+$")
+
+type baseCrawler struct {
+	client *http.Client
+	cc *CrawlContext
+	cookie_setup bool
+	download_jobs int
+	excluded []*url.URL
+	redirect func(*http.Request, []*http.Request)error
 }
 
-func (r *ThumbCrawler) Crawl(url *url.URL) error {
+func newBaseCrawler(cc *CrawlContext) *baseCrawler {
+	return &baseCrawler{
+		cc: cc, client: new(http.Client),
+		download_jobs: DEFAULT_DL_JOBS,
+		excluded: make([]*url.URL,0,1),
+		redirect: logRedirect,
+	}
+}
+
+//getPage receives a http response by issuing a "GET" request on url "page". This function has 3 side effects.
+//Firstly the http client's CheckRedirect function is set to the crawler's "redirect" member. Secondly a new cookie jar
+//is deployed to the http client if there isn't already one. Thirdly the cookie jar is filled with the CrawlContext's cookie slice,
+//but only if the cookie jar did not exist before (i.e. on the first call).
+func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
+	c.client.CheckRedirect = c.redirect
+	req, err := http.NewRequest("GET", page.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	
+	//setup cookie jar if none exists
+	if c.client.Jar == nil {
+		jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+		if err != nil {
+			return nil, err
+		}
+
+		//load passed cookies into the cookie jar
+		if len(c.cc.Cookies) > 0 {
+			cookieurl, err := baseURLOnly(page)
+			if err != nil {
+				return nil, err
+			}
+			jar.SetCookies(cookieurl, c.cc.Cookies)
+		}
+		c.client.Jar = jar
+	}
+	return c.client.Do(req)
+}
+
+//redirection sets the optional redirection handler function for the crawler's http.Client
+func (c *baseCrawler) redirection(redirect func(*http.Request, []*http.Request)error) {
+	c.client.CheckRedirect = redirect
+}
+
+type ImageCrawler struct {
+	client *http.Client
+	download_jobs int
+	excluded []*url.URL
+	redirect bool
+	attrs []html.Attribute
+	cc *CrawlContext
+}
+
+func NewImageCrawler(cc *CrawlContext) (CrawlerInterface, error) {
+	crawler := &ImageCrawler {
+		cc: cc,
+		client: new(http.Client),
+		download_jobs: DEFAULT_DL_JOBS,
+	}
+	return crawler, nil
+}
+
+func (r *ImageCrawler) SetOptions(args []string) error {
+	set := flag.NewFlagSet("ImageCrawler", flag.ContinueOnError)
+	common := addCommonCrawlerFlags(set)
+	cmd_attrs := make(cmdline.Attrs)
+	set.Var(cmd_attrs, "attrs", "Download only images that match the declared node attributes")
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	r.excluded = common.excludedURLs.URLs
+	r.redirect = *common.allowRedirect
+	r.attrs = cmdAttrs2htmlAttrs(cmd_attrs)
+	return nil
+}
+
+func (r *ImageCrawler) Crawl(url *url.URL) error {
 	const imgtag string = "img"
 	picid := 1
+	page := r.cc.Pager.PageNum()
 	resp, err := http.Get(url.String())
 	if err != nil {
 		return err
@@ -27,10 +123,13 @@ func (r *ThumbCrawler) Crawl(url *url.URL) error {
 		return err
 	}
 	defer resp.Body.Close()
-	attrs := make([]html.Attribute, 1)
-	attrs[0].Key = "class"
-	attrs[0].Val = "img-responsive"
-	nodes := ElementsByTagAndAttrs(body, imgtag, attrs)
+	var nodes []*html.Node
+	if len(r.attrs) == 0 {
+		nodes = elementsByTag(body, atom.Img)
+	} else {
+		nodes = elementsByTagAndAttrs(body, imgtag, r.attrs)
+	}
+	dispatcher := download.NewDownloadDispatcher(r.download_jobs)
 	for _, n := range nodes {
 		for _, a := range n.Attr {
 			if a.Key == "src" {
@@ -39,43 +138,210 @@ func (r *ThumbCrawler) Crawl(url *url.URL) error {
 				if li+1 < len(a.Val) {
 					suffix = a.Val[li+1:]
 				} else {
-					fmt.Fprintf(os.Stderr, "image suffix missing: %s\n", a.Val)
+					log.Println(logger.Level_Error, fmt.Errorf("Download error (no image suffix): %s", a.Val))
 					break
 				}
-				dlpath := fmt.Sprintf("%s/%d-%d.%s", r.Out, r.Page, picid, suffix)
-				dl, err := url.Parse(a.Val)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%v\n", err)
+				if len(r.cc.output) < 1 {
+					panic("Output directory missing")
+				}
+				dl := &download.Download{
+					Client: r.client,
+				}
+				dl.File = fmt.Sprintf("%s/%d-%d.%s", r.cc.output, page, picid, suffix)
+				if dl.Addr, err = url.Parse(a.Val); err != nil {
+					log.Println(logger.Level_Error, fmt.Errorf("Download error: %w", err))
 					break
 				}
-				if !dl.IsAbs() {
-					dl, err = rel2absURL(url, dl)
+				if !dl.Addr.IsAbs() {
+					dl.Addr, err = rel2absURL(url, dl.Addr)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "%v\n", err)
+						log.Println(logger.Level_Error, fmt.Errorf("Download error: %w", err))
 						break
 					}
 				}
-				if r.isExcluded(dl) {
+				if r.isExcluded(dl.Addr) {
 					break
 				}
-				if err := DownloadURL(dl, dlpath); err != nil {
-					fmt.Fprintf(os.Stderr, "download failed: %s: %v\n", dlpath, err)
-					break
-				}
+				dispatcher.Dispatch(dl)
 				picid++
 				break
 			}
 		}
 	}
-	r.Page++
+	dispatcher.Close()
+	dls := dispatcher.Collect()
+	for _, dl := range dls {
+		if dl.Err != nil {
+			log.Println(logger.Level_Error, fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
+		} else {
+			log.Println(logger.Level_Info, fmt.Sprintf("Download finished: %s", dl.Addr.String()))
+		}
+	}
 	return nil
 }
 
-func (r *ThumbCrawler) isExcluded(url *url.URL) bool {
-	for _, exurl := range r.Excluded {
+func (r *ImageCrawler) isExcluded(url *url.URL) bool {
+	for _, exurl := range r.excluded {
 		if exurl.String() == url.String() {
 			return true
 		}
 	}
 	return false
+}
+
+type VB4AttachmentCrawler struct {
+	*baseCrawler
+}
+
+type vb4post html.Node
+type vb4attachment html.Node
+
+func NewVB4AttachmentCrawler(cc *CrawlContext) (CrawlerInterface, error) {
+	crawler := &VB4AttachmentCrawler{ baseCrawler: newBaseCrawler(cc)}
+	_, ok := crawler.baseCrawler.cc.Pager.(*VB4Pager)
+	if ok {
+		return crawler, nil
+	}
+	return nil, fmt.Errorf("Crawler %q: Incompatible pager type", CRAWLER_VB4_ATTACHMENTS)
+}
+
+func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
+	set := flag.NewFlagSet("VB4AttachmentCrawler", flag.ContinueOnError)
+	common := addCommonCrawlerFlags(set)
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	r.baseCrawler.excluded = common.excludedURLs.URLs
+	if *common.allowRedirect {
+		r.baseCrawler.redirect = logRedirect
+	} else {
+		r.baseCrawler.redirect = noRedirect
+	}
+	return nil
+}
+
+func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
+	resp, err := r.baseCrawler.getPage(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := html.Parse(resp.Body)
+	if err != nil {
+		return err
+	}
+	dispatcher := download.NewDownloadDispatcher(r.baseCrawler.download_jobs)
+	posts := vb4PostList(body)
+	for _, post := range posts {
+		atts := post.attachments()
+		for _, att := range atts {
+			attUrl, err := att.href()
+			if err != nil {
+				printFetchError(attUrl)
+				continue
+			}
+			if !attUrl.IsAbs() {
+				attUrl, err = rel2absURL(url, attUrl)
+				if err != nil {
+					printFetchError(attUrl)
+					continue
+				}
+			}
+			dl := &download.Download{Client: r.baseCrawler.client, Addr: attUrl}
+			name := fileNameFromURL(attUrl)
+			if name == "" {
+				printFetchError(attUrl)
+				continue
+			}
+			dl.File = fmt.Sprintf("%s/%s", r.baseCrawler.cc.output, name)
+			dispatcher.Dispatch(dl)
+		}
+	}
+	dispatcher.Close()
+	dls := dispatcher.Collect()
+		for _, dl := range dls {
+		if dl.Err != nil {
+			log.Error(fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
+		} else {
+			log.Info(fmt.Sprintf("Download finished: %s", dl.Addr.String()))
+		}
+	}
+	return nil
+}
+
+func vb4PostList(node *html.Node) []*vb4post {
+	const searchForID string = "posts"
+	posts := elementByID(node, searchForID)
+	if posts == nil {
+		return nil
+		//TODO: log info that no posts have been found
+	}
+	nc := elementsByAttrMatch(posts, "id", vb4_regex_postid)
+	vb4posts := make([]*vb4post, len(nc.nodes))
+	for i := range nc.nodes {
+		vb4posts[i] = (*vb4post)(nc.nodes[i])
+		log.Debug(fmt.Sprintf("VB4AttachmentCrawler: Added post %q", vb4posts[i].id()))
+	}
+	return vb4posts
+}
+
+func (r *vb4post) id() string {
+	for _, a := range r.Attr {
+		if a.Key == "id" && vb4_regex_postid.MatchString(a.Val) {
+			splitted := strings.Split(a.Val, "_")
+			return splitted[1]
+		}
+	}
+	return ""
+}
+
+func (r *vb4post) attachments() []*vb4attachment {
+	nc := elementsByAttrMatch((*html.Node)(r), "id", vb4_regex_attachmentid)
+	vb4att := make([]*vb4attachment, len(nc.nodes))
+	for i := range nc.nodes {
+		vb4att[i] = (*vb4attachment)(nc.nodes[i])
+	}
+	return vb4att
+}
+
+func (r *vb4attachment) href() (*url.URL, error) {
+	for _, a := range r.Attr {
+		if a.Key == "href" {
+			url, err := url.Parse(a.Val)
+			if err != nil {
+				return nil, err
+			}
+			return url, nil
+		}
+	}
+	return nil, nil
+}
+
+
+/* functions and types that can be used by all crawlers: */
+
+type commonCrawlerFlags struct {
+	excludedURLs cmdline.URLCollection
+	allowRedirect *bool
+}
+
+func addCommonCrawlerFlags(set *flag.FlagSet) *commonCrawlerFlags {
+	res := commonCrawlerFlags{}
+	set.Var(&res.excludedURLs, "exclude", "Comma-separated list of URLs that won't be downloaded")
+	res.allowRedirect = set.Bool("redirect", true, "Allow or deny redirects")
+	return &res
+}
+
+func cmdAttrs2htmlAttrs(attrs_cmd cmdline.Attrs) []html.Attribute {
+	attrs_html := make([]html.Attribute,0,10)
+	for key, vals := range attrs_cmd {
+		for _, val := range vals {
+			attr := html.Attribute {
+				Key: key,
+				Val: val,
+			}
+			attrs_html = append(attrs_html, attr)
+		}
+	}
+	return attrs_html
 }
