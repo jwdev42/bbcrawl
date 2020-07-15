@@ -12,7 +12,86 @@ import (
 const (
 	PAGER_UNKNOWNBB = "unknownbb"
 	PAGER_VB4       = "vb4"
+	PAGER_QUERY       = "query"
 )
+
+type QueryPager struct {
+	counter struct{ id string; val int; limit int }
+	thread *url.URL
+	query url.Values
+	cc     *CrawlContext
+}
+
+func NewQueryPager(cc *CrawlContext) PagerInterface {
+	return &QueryPager{cc: cc}
+}
+
+func (r *QueryPager) Next() (*url.URL, error) {
+	if r.counter.val > r.counter.limit {
+		return nil, nil
+	}
+	r.query.Set(r.counter.id, strconv.Itoa(r.counter.val))
+	u, err := url.Parse(r.thread.String())
+	if err != nil {
+		return nil, err
+	}
+	u.RawQuery = r.query.Encode()
+	r.counter.val++
+	return u, nil
+}
+
+func (r *QueryPager) PageNum() int {
+	return r.counter.val - 1
+}
+
+func (r *QueryPager) SetOptions(args []string) error {
+	start := cmdline.StartPage(0)
+	end := cmdline.NewEndPage(&start)
+	set := flag.NewFlagSet("QueryPager", flag.ContinueOnError)
+	set.Var(&start, "start", "start page")
+	set.Var(end, "end", "end page")
+	namep := set.String("name", "page", "identifier for the page variable in the query string")
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	if start < 1 {
+		return fmt.Errorf("Start page not set")
+	}
+	r.counter.val = int(start)
+	if end.End < r.counter.val {
+		return fmt.Errorf("End page not set")
+	}
+	r.counter.limit = end.End
+	if len(*namep) == 0 {
+		return fmt.Errorf("Page identifier not set")
+	}
+	r.counter.id = *namep
+	return nil
+}
+
+func (r *QueryPager) SetUrl(addr string) error {
+	var u_str, q_str string
+	s := strings.SplitN(addr, "?", 2)
+	switch len(s) {
+		case 2:
+			q_str = s[1]
+			fallthrough
+		case 1:
+			u_str = s[0]
+		default:
+			panic("You are not supposed to be here!")
+	}
+	u, err := url_for_pager(u_str)
+	if err != nil {
+		return err
+	}
+	r.query, err = url.ParseQuery(q_str)
+	if err != nil {
+		return err
+	}
+	r.thread = u
+	return nil
+}
 
 type UnknownBBPager struct {
 	Start  int
