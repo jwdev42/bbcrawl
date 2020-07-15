@@ -19,6 +19,7 @@ import (
 const (
 	CRAWLER_VB4_ATTACHMENTS = "vb4-attachments"
 	CRAWLER_IMAGE           = "img"
+	CRAWLER_FILE            = "file"
 )
 
 var vb4_regex_postid *regexp.Regexp = regexp.MustCompile("^post_?[0-9]+$")
@@ -39,6 +40,16 @@ func newBaseCrawler(cc *CrawlContext) *baseCrawler {
 		download_jobs: DEFAULT_DL_JOBS,
 		excluded:      make([]*url.URL, 0, 1),
 		redirect:      logRedirect,
+	}
+}
+
+func (c *baseCrawler) checkDownloads(downloads []*download.Download) {
+	for _, dl := range downloads {
+		if dl.Err != nil {
+			log.Error(fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
+		} else {
+			log.Info(fmt.Sprintf("Download finished: %s", dl.Addr.String()))
+		}
 	}
 }
 
@@ -76,6 +87,45 @@ func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
 //redirection sets the optional redirection handler function for the crawler's http.Client
 func (c *baseCrawler) redirection(redirect func(*http.Request, []*http.Request) error) {
 	c.client.CheckRedirect = redirect
+}
+
+func (c *baseCrawler) SetOptions(args []string) error {
+	set := flag.NewFlagSet("baseCrawler", flag.ContinueOnError)
+	common := addCommonCrawlerFlags(set)
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	c.excluded = common.excludedURLs.URLs
+	if *common.allowRedirect {
+		c.redirect = logRedirect
+	} else {
+		c.redirect = noRedirect
+	}
+	return nil
+}
+
+type FileCrawler struct {
+	*baseCrawler
+}
+
+func NewFileCrawler(cc *CrawlContext) (CrawlerInterface, error) {
+	crawler := &FileCrawler{baseCrawler: newBaseCrawler(cc)}
+	return crawler, nil
+}
+
+func (r *FileCrawler) Crawl(u *url.URL) error {
+	var filename string
+	page := r.cc.Pager.PageNum()
+	name := fileNameFromURL(u)
+	if len(name) > 0 {
+		filename = fmt.Sprintf("%d - %s", page, name)
+	}
+	disp := download.NewDownloadDispatcher(1)
+	dl := &download.Download{Client: r.client, Addr: u, File: fmt.Sprintf("%s/%s", r.cc.output, filename)}
+	disp.Dispatch(dl)
+	disp.Close()
+	r.checkDownloads(disp.Collect())
+	return nil
 }
 
 type ImageCrawler struct {

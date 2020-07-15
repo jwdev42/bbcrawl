@@ -6,7 +6,7 @@ import (
 )
 
 func fileNameFromURL(url *url.URL) string {
-	return smallestSubstrRight(url.String(), "/")
+	return smallestSubstrRight(url.Path, "/")
 }
 
 //baseURLOnly returns a new url that has the same host and the same scheme as the src argument, but no path and no query string.
