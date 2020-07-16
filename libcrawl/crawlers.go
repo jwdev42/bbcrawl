@@ -103,7 +103,7 @@ func (c *baseCrawler) SetOptions(args []string) error {
 	} else {
 		c.redirect = noRedirect
 	}
-	c.debug = *common.debugMode
+	c.debug = bool(*common.debugMode)
 	return nil
 }
 
@@ -158,7 +158,7 @@ func (r *ImageCrawler) SetOptions(args []string) error {
 	} else {
 		r.redirect = noRedirect
 	}
-	r.debug = *common.debugMode
+	r.debug = bool(*common.debugMode)
 	r.attrs = cmdAttrs2htmlAttrs(cmd_attrs)
 	return nil
 }
@@ -259,7 +259,7 @@ func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
 	} else {
 		r.redirect = noRedirect
 	}
-	r.debug = *common.debugMode
+	r.debug = bool(*common.debugMode)
 	return nil
 }
 
@@ -370,15 +370,16 @@ func (r *vb4attachment) href() (*url.URL, error) {
 
 type commonCrawlerFlags struct {
 	excludedURLs  cmdline.URLCollection
-	allowRedirect *bool
-	debugMode     *bool
+	allowRedirect *cmdline.Boolean
+	debugMode     *cmdline.Boolean
 }
 
 func addCommonCrawlerFlags(set *flag.FlagSet) *commonCrawlerFlags {
-	res := commonCrawlerFlags{}
+	res := commonCrawlerFlags{ debugMode: new(cmdline.Boolean), allowRedirect: new(cmdline.Boolean) }
+	*res.allowRedirect = cmdline.Boolean(true)
 	set.Var(&res.excludedURLs, "exclude", "Comma-separated list of URLs that won't be downloaded")
-	res.allowRedirect = set.Bool("redirect", true, "Allow or deny redirects")
-	res.debugMode = set.Bool("debug", false, "Enable extra debugging code for the crawler")
+	set.Var(res.allowRedirect, "redirect", "Allow or deny redirects")
+	set.Var(res.debugMode, "debug", "Enable extra debugging code for the crawler")
 	return &res
 }
 
