@@ -17,9 +17,8 @@ const DEFAULT_REDIRECTS = 10
 var log = global.GetLogger()
 
 var pagers = map[string]func(*CrawlContext) PagerInterface{
-	PAGER_VB4:       NewVB4Pager,
-	PAGER_UNKNOWNBB: NewUnknownBBPager,
-	PAGER_QUERY:     NewQueryPager,
+	PAGER_VB4:    NewVB4Pager,
+	PAGER_QUERY:  NewQueryPager,
 	PAGER_URLFMT: NewURLFormatPager,
 }
 

@@ -10,9 +10,8 @@ import (
 )
 
 const (
-	PAGER_UNKNOWNBB = "unknownbb"
-	PAGER_VB4       = "vb4"
-	PAGER_QUERY     = "query"
+	PAGER_VB4    = "vb4"
+	PAGER_QUERY  = "query"
 	PAGER_URLFMT = "format"
 )
 
@@ -98,94 +97,15 @@ func (r *QueryPager) SetUrl(addr string) error {
 	return nil
 }
 
-type UnknownBBPager struct {
-	Start  int
-	End    int
-	Posts  int
-	Thread *url.URL
-	page   int
-	cc     *CrawlContext
-}
-
-func NewUnknownBBPager(cc *CrawlContext) PagerInterface {
-	return &UnknownBBPager{cc: cc}
-}
-
-func (r *UnknownBBPager) PageNum() int {
-	return r.page - 1
-}
-
-func (r *UnknownBBPager) SetOptions(args []string) error {
-	start := cmdline.StartPage(0)
-	end := cmdline.NewEndPage(&start)
-	set := flag.NewFlagSet("UnknownBBPager", flag.ContinueOnError)
-	set.Var(&start, "start", "start page")
-	set.Var(end, "end", "end page")
-	posts := set.Int("posts", 0, "posts per page")
-	if err := set.Parse(args); err != nil {
-		return err
-	}
-	if start < 1 {
-		return fmt.Errorf("Start page not set")
-	}
-	r.Start = int(start)
-	if end.End < r.Start {
-		return fmt.Errorf("End page not set")
-	}
-	r.End = end.End
-	if *posts < 1 {
-		return fmt.Errorf("Amount of posts per page not set or < 1")
-	}
-	r.Posts = *posts
-	return nil
-}
-
-func (r *UnknownBBPager) SetUrl(addr string) error {
-	u, err := url_for_pager(addr)
-	if err != nil {
-		return err
-	}
-	r.Thread = u
-	return nil
-}
-
-func (r *UnknownBBPager) Next() (*url.URL, error) {
-	const threadsuffix string = ".html"
-	var thread string
-
-	if r.page < r.Start {
-		r.page = r.Start
-	}
-	if r.page > r.End {
-		return nil, nil
-	}
-	counter := (r.page - 1) * r.Posts
-	if counter > 0 {
-		li := strings.LastIndex(r.Thread.String(), threadsuffix)
-		if li == -1 {
-			return nil, fmt.Errorf("cannot split thread string %q", thread)
-		}
-		thread = r.Thread.String()[:li] + fmt.Sprintf("-%d", counter) + threadsuffix
-	} else {
-		thread = r.Thread.String()
-	}
-	r.page++
-	if newurl, err := url.Parse(thread); err != nil {
-		return nil, err
-	} else {
-		return newurl, nil
-	}
-}
-
 //URLFormatPager browses through the pages by having the url as a format string.
 type URLFormatPager struct {
-	end int
-	page int
-	step int
-	adjust int
-	startpage *url.URL
+	end          int
+	page         int
+	step         int
+	adjust       int
+	startpage    *url.URL
 	usestartpage bool
-	fmtstr string
+	fmtstr       string
 }
 
 func NewURLFormatPager(cc *CrawlContext) PagerInterface {
@@ -201,7 +121,7 @@ func (r *URLFormatPager) Next() (*url.URL, error) {
 	if r.page > r.end {
 		return nil, nil
 	}
-	u, err := url.Parse(fmt.Sprintf(r.fmtstr, r.page * r.step))
+	u, err := url.Parse(fmt.Sprintf(r.fmtstr, r.page*r.step))
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +140,7 @@ func (r *URLFormatPager) SetOptions(args []string) error {
 	adjp := set.Int("adjust", 0, "adjust the page reported to the crawler")
 	startp, endp := set.Int("start", -1, "first page"), set.Int("end", -1, "last page")
 	stepp := set.Int("step", 1, "number of pages to advance with every page load")
-	fmtstrp := set.String("format" ,"", "url format string")
+	fmtstrp := set.String("format", "", "url format string")
 	startpagep := set.Bool("startpage", false, "if true, the url at the end of the command line will be used as the start page before using the format string. If false (default), that url will be ignored.")
 	if err := set.Parse(args); err != nil {
 		return err
