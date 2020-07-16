@@ -135,13 +135,14 @@ func (r *URLFormatPager) PageNum() int {
 }
 
 func (r *URLFormatPager) SetOptions(args []string) error {
+	var startpagep = new(cmdline.Boolean)
 	//setup
 	set := flag.NewFlagSet("URLFormatPager", flag.ContinueOnError)
 	adjp := set.Int("adjust", 0, "adjust the page reported to the crawler")
 	startp, endp := set.Int("start", -1, "first page"), set.Int("end", -1, "last page")
 	stepp := set.Int("step", 1, "number of pages to advance with every page load")
 	fmtstrp := set.String("format", "", "url format string")
-	startpagep := set.Bool("startpage", false, "if true, the url at the end of the command line will be used as the start page before using the format string. If false (default), that url will be ignored.")
+	set.Var(startpagep, "startpage", "if true, the url at the end of the command line will be used as the start page before using the format string. If false (default), that url will be ignored.")
 	if err := set.Parse(args); err != nil {
 		return err
 	}
@@ -162,7 +163,7 @@ func (r *URLFormatPager) SetOptions(args []string) error {
 	}
 	//set pager vars
 	r.adjust = *adjp
-	r.page, r.end, r.step, r.fmtstr, r.usestartpage = *startp, *endp, *stepp, *fmtstrp, *startpagep
+	r.page, r.end, r.step, r.fmtstr, r.usestartpage = *startp, *endp, *stepp, *fmtstrp, bool(*startpagep)
 	return nil
 }
 
