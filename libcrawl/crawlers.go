@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"path/filepath"
+	"os"
 )
 
 const (
@@ -30,6 +32,7 @@ type baseCrawler struct {
 	cc            *CrawlContext
 	cookie_setup  bool
 	debug         bool
+	debug_counter int
 	download_jobs int
 	excluded      []*url.URL
 	redirect      func(*http.Request, []*http.Request) error
@@ -51,6 +54,35 @@ func (c *baseCrawler) checkDownloads(downloads []*download.Download) {
 			log.Error(fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
 		} else {
 			log.Info(fmt.Sprintf("Download finished: %s", dl.Addr.String()))
+		}
+	}
+}
+
+func (c *baseCrawler) debug_DumpHeader(dir, name string, header http.Header) {
+	filename := fmt.Sprintf("%d - %s.txt", c.debug_counter, name)
+	c.debug_counter++
+	path := filepath.Join(dir, filename)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		log.Error(fmt.Errorf("DumpHeader failed: %w", err))
+		return
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		log.Error(fmt.Errorf("DumpHeader failed: %w", err))
+		return
+	}
+	defer f.Close()
+	for k, v := range header {
+		var b strings.Builder
+		for _, vv := range v {
+			b.WriteString(fmt.Sprintf("%s:\t",k))
+			b.WriteString(vv)
+			b.WriteByte('\n')
+		}
+		_, err := f.WriteString(b.String())
+		if err != nil {
+			log.Error(fmt.Errorf("DumpHeader failed: %w", err))
+			return
 		}
 	}
 }
@@ -83,7 +115,18 @@ func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
 		}
 		c.client.Jar = jar
 	}
-	return c.client.Do(req)
+	cookies := c.client.Jar.Cookies(page)
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	if c.debug {
+		c.debug_DumpHeader(filepath.Join(c.cc.output, "debug"), "Request Header", req.Header)
+	}
+	resp, err := c.client.Do(req)
+	if c.debug {
+		c.debug_DumpHeader(filepath.Join(c.cc.output, "debug"), "Response Header", resp.Header)
+	}
+	return resp, err
 }
 
 //redirection sets the optional redirection handler function for the crawler's http.Client
