@@ -9,6 +9,28 @@ import (
 	"strings"
 )
 
+type Boolean bool
+
+func (b *Boolean) Set(s string) error {
+	lower := strings.ToLower(s)
+	switch lower {
+	case "true":
+		*b = true
+	case "false":
+		*b = false
+	default:
+		return fmt.Errorf("Invalid input for Boolean flag: %q", s)
+	}
+	return nil
+}
+
+func (b *Boolean) String() string {
+	if *b {
+		return "true"
+	}
+	return "false"
+}
+
 type StartPage int
 
 func (i *StartPage) Set(s string) error {

@@ -6,6 +6,42 @@ import (
 	"testing"
 )
 
+func TestBoolean(t *testing.T) {
+	var tests = map[string]bool{
+		"true":  true,
+		"TRUE":  true,
+		"false": false,
+		"FALSE": false,
+	}
+	for k, v := range tests {
+		test := new(Boolean)
+		if err := test.Set(k); err != nil {
+			t.Error(err)
+		}
+		if bool(*test) != v {
+			t.Errorf("expected %t, got %t", v, bool(*test))
+		}
+	}
+
+	var errors = []string{"", "abc", "trve", "1", "0"}
+	for _, v := range errors {
+		test := new(Boolean)
+		if err := test.Set(v); err == nil {
+			t.Error("Error expected")
+		}
+	}
+
+	trve := new(Boolean)
+	*trve = true
+	if trve.String() != "true" {
+		t.Errorf("expected %s, got %s", "true", trve.String())
+	}
+	f := new(Boolean)
+	if f.String() != "false" {
+		t.Errorf("expected %s, got %s", "false", f.String())
+	}
+}
+
 func TestURLCollection(t *testing.T) {
 	input := "https://www.google.com,ftp://example.com,relative/url/example.html"
 	input_split := strings.Split(input, ",")
