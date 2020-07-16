@@ -44,6 +44,7 @@ func newBaseCrawler(cc *CrawlContext) *baseCrawler {
 	}
 }
 
+//checkDownloads loops through finished downloads and prints to the logger whether the download was successful or not.
 func (c *baseCrawler) checkDownloads(downloads []*download.Download) {
 	for _, dl := range downloads {
 		if dl.Err != nil {
@@ -221,14 +222,7 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 		}
 	}
 	dispatcher.Close()
-	dls := dispatcher.Collect()
-	for _, dl := range dls {
-		if dl.Err != nil {
-			log.Println(logger.Level_Error, fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
-		} else {
-			log.Println(logger.Level_Info, fmt.Sprintf("Download finished: %s", dl.Addr.String()))
-		}
-	}
+	r.checkDownloads(dispatcher.Collect())
 	return nil
 }
 
@@ -307,14 +301,7 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 		}
 	}
 	dispatcher.Close()
-	dls := dispatcher.Collect()
-	for _, dl := range dls {
-		if dl.Err != nil {
-			log.Error(fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
-		} else {
-			log.Info(fmt.Sprintf("Download finished: %s", dl.Addr.String()))
-		}
-	}
+	r.checkDownloads(dispatcher.Collect())
 	return nil
 }
 
