@@ -13,6 +13,7 @@ const (
 	PAGER_UNKNOWNBB = "unknownbb"
 	PAGER_VB4       = "vb4"
 	PAGER_QUERY     = "query"
+	PAGER_URLFMT = "format"
 )
 
 type QueryPager struct {
@@ -174,6 +175,84 @@ func (r *UnknownBBPager) Next() (*url.URL, error) {
 	} else {
 		return newurl, nil
 	}
+}
+
+//URLFormatPager browses through the pages by having the url as a format string.
+type URLFormatPager struct {
+	end int
+	page int
+	step int
+	adjust int
+	startpage *url.URL
+	usestartpage bool
+	fmtstr string
+}
+
+func NewURLFormatPager(cc *CrawlContext) PagerInterface {
+	return new(URLFormatPager)
+}
+
+func (r *URLFormatPager) Next() (*url.URL, error) {
+	if r.usestartpage {
+		r.usestartpage = false
+		log.Debug(fmt.Sprintf("QueryPager: Sending url %q", r.startpage))
+		return r.startpage, nil
+	}
+	if r.page > r.end {
+		return nil, nil
+	}
+	u, err := url.Parse(fmt.Sprintf(r.fmtstr, r.page * r.step))
+	if err != nil {
+		return nil, err
+	}
+	r.page++
+	log.Debug(fmt.Sprintf("QueryPager: Sending url %q", u))
+	return u, nil
+}
+
+func (r *URLFormatPager) PageNum() int {
+	return r.page - 1 + r.adjust
+}
+
+func (r *URLFormatPager) SetOptions(args []string) error {
+	//setup
+	set := flag.NewFlagSet("URLFormatPager", flag.ContinueOnError)
+	adjp := set.Int("adjust", 0, "adjust the page reported to the crawler")
+	startp, endp := set.Int("start", -1, "first page"), set.Int("end", -1, "last page")
+	stepp := set.Int("step", 1, "number of pages to advance with every page load")
+	fmtstrp := set.String("format" ,"", "url format string")
+	startpagep := set.Bool("startpage", false, "if true, the url at the end of the command line will be used as the start page before using the format string. If false (default), that url will be ignored.")
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	//validation
+	if *startp < 0 {
+		return fmt.Errorf("start not set or set to an illegal value")
+	}
+	if *stepp < 1 {
+		return fmt.Errorf("step set to an illegal value")
+	}
+	if len(*fmtstrp) == 0 {
+		return fmt.Errorf("format not set")
+	}
+	if u, err := url.Parse(fmt.Sprintf(*fmtstrp, 1)); err != nil {
+		return fmt.Errorf("format: format string does not produce a valid url: %w", err)
+	} else if !u.IsAbs() {
+		return fmt.Errorf("format: url is not absolute")
+	}
+	//set pager vars
+	r.adjust = *adjp
+	r.page, r.end, r.step, r.fmtstr, r.usestartpage = *startp, *endp, *stepp, *fmtstrp, *startpagep
+	return nil
+}
+
+func (r *URLFormatPager) SetUrl(addr string) error {
+	u, err := url_for_pager(addr)
+	if err != nil {
+		return err
+	}
+	r.startpage = u
+	return nil
 }
 
 type VB4Pager struct {

@@ -20,6 +20,7 @@ var pagers = map[string]func(*CrawlContext) PagerInterface{
 	PAGER_VB4:       NewVB4Pager,
 	PAGER_UNKNOWNBB: NewUnknownBBPager,
 	PAGER_QUERY:     NewQueryPager,
+	PAGER_URLFMT: NewURLFormatPager,
 }
 
 var crawlers = map[string]func(*CrawlContext) (CrawlerInterface, error){
