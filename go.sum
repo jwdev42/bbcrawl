@@ -1,5 +1,5 @@
-github.com/jwdev42/cookiefile v0.1.0 h1:QyLSBId8cgsUbxCy2hZae0MNxZF2IuIscyD9XNJatXo=
-github.com/jwdev42/cookiefile v0.1.0/go.mod h1:OjXkAZGvr5e1lsFji5uLcJulRqqlyb/D/tDFkHyx7tU=
+github.com/jwdev42/cookiefile v0.1.1 h1:qTeD8MzaHBxEQ4VvX7gOAlLz4tLTg17md0W0fhl6idI=
+github.com/jwdev42/cookiefile v0.1.1/go.mod h1:OjXkAZGvr5e1lsFji5uLcJulRqqlyb/D/tDFkHyx7tU=
 github.com/jwdev42/logger v0.1.0 h1:3WMFgoR9k/SblOzsqKNdoRF+3b3AdPBpnrNMwASmu+g=
 github.com/jwdev42/logger v0.1.0/go.mod h1:mFZ5dWbdKh/N11XjgNXw0f8Cw6jQ1CkCBIbWVHitIWQ=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
