@@ -34,7 +34,7 @@ func matchAttrVal(nc *nodecollection, key string, val *regexp.Regexp) func(n *ht
 		for _, a := range node.Attr {
 			if a.Key == key && val.MatchString(a.Val) {
 				nc.nodes = append(nc.nodes, node)
-				return false
+				return true
 			}
 		}
 		return true
