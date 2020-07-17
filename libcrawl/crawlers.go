@@ -12,10 +12,10 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
-	"path/filepath"
-	"os"
 )
 
 const (
@@ -75,7 +75,7 @@ func (c *baseCrawler) debug_DumpHeader(dir, name string, header http.Header) {
 	for k, v := range header {
 		var b strings.Builder
 		for _, vv := range v {
-			b.WriteString(fmt.Sprintf("%s:\t",k))
+			b.WriteString(fmt.Sprintf("%s:\t", k))
 			b.WriteString(vv)
 			b.WriteByte('\n')
 		}
@@ -418,7 +418,7 @@ type commonCrawlerFlags struct {
 }
 
 func addCommonCrawlerFlags(set *flag.FlagSet) *commonCrawlerFlags {
-	res := commonCrawlerFlags{ debugMode: new(cmdline.Boolean), allowRedirect: new(cmdline.Boolean) }
+	res := commonCrawlerFlags{debugMode: new(cmdline.Boolean), allowRedirect: new(cmdline.Boolean)}
 	*res.allowRedirect = cmdline.Boolean(true)
 	set.Var(&res.excludedURLs, "exclude", "Comma-separated list of URLs that won't be downloaded")
 	set.Var(res.allowRedirect, "redirect", "Allow or deny redirects")
