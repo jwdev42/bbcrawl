@@ -25,7 +25,14 @@ func rel2absURL(domain *url.URL, url *url.URL) (*url.URL, error) {
 	if !domain.IsAbs() {
 		panic("domain parameter is relative")
 	}
-	if newurl, err := url.Parse(domain.Hostname() + url.EscapedPath()); err != nil {
+	var fmtstr string
+	requrl := url.RequestURI()
+	if requrl[0] == '/' {
+		fmtstr = "%s://%s%s"
+	} else {
+		fmtstr = "%s://%s/%s"
+	}
+	if newurl, err := url.Parse(fmt.Sprintf(fmtstr, domain.Scheme, domain.Hostname(), url.RequestURI())); err != nil {
 		return nil, err
 	} else {
 		return newurl, nil
