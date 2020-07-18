@@ -164,14 +164,26 @@ func (r *FileCrawler) Crawl(u *url.URL) error {
 	var filename string
 	page := r.cc.Pager.PageNum()
 	name := fileNameFromURL(u)
+
+	//determine filename for download
 	if len(name) > 0 {
 		filename = fmt.Sprintf("%d - %s", page, name)
 	}
+
+	//setup dispatcher
 	disp := download.NewDownloadDispatcher(1)
-	dl := &download.Download{Client: r.client, Addr: u, File: fmt.Sprintf("%s/%s", r.cc.output, filename)}
+	defer r.checkDownloads(disp.Collect())
+	defer disp.Close()
+
+	//setup Download struct
+	dl := &download.Download{Client: r.client, Addr: u}
+	if err := dl.SetDir(r.cc.output); err != nil {
+		return err
+	}
+	dl.SetFile(filename)
+
+	//run download
 	disp.Dispatch(dl)
-	disp.Close()
-	r.checkDownloads(disp.Collect())
 	return nil
 }
 
@@ -225,10 +237,17 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 	} else {
 		nodes = elementsByTagAndAttrs(body, imgtag, r.attrs)
 	}
+
+	//setup dispatcher
 	dispatcher := download.NewDownloadDispatcher(r.download_jobs)
+	defer r.checkDownloads(dispatcher.Collect())
+	defer dispatcher.Close()
+
 	for _, n := range nodes {
 		for _, a := range n.Attr {
 			if a.Key == "src" {
+
+				//determine filename
 				li := strings.LastIndex(a.Val, ".")
 				var suffix string
 				if li+1 < len(a.Val) {
@@ -237,25 +256,33 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 					log.Println(logger.Level_Error, fmt.Errorf("Download error (no image suffix): %s", a.Val))
 					break
 				}
-				if len(r.cc.output) < 1 {
-					panic("Output directory missing")
-				}
+				filename := fmt.Sprintf("%d-%d.%s", page, picid, suffix)
+
+				//setup Download struct
 				dl := &download.Download{
 					Client: r.client,
 				}
-				dl.File = fmt.Sprintf("%s/%d-%d.%s", r.cc.output, page, picid, suffix)
+				//set directory
+				if err := dl.SetDir(r.cc.output); err != nil {
+					log.Error(err)
+					break
+				}
+				//set file
+				dl.SetFile(filename)
+				//set download address
 				if dl.Addr, err = url.Parse(a.Val); err != nil {
-					log.Println(logger.Level_Error, fmt.Errorf("Download error: %w", err))
+					log.Error(fmt.Errorf("Download error: %w", err))
 					break
 				}
 				if !dl.Addr.IsAbs() {
 					dl.Addr, err = rel2absURL(url, dl.Addr)
 					if err != nil {
-						log.Println(logger.Level_Error, fmt.Errorf("Download error: %w", err))
+						log.Error(fmt.Errorf("Download error: %w", err))
 						break
 					}
 				}
 				if r.isExcluded(dl.Addr) {
+					log.Debug(fmt.Errorf("Skipping download (on exclusion list): %s", dl.Addr.String()))
 					break
 				}
 				dispatcher.Dispatch(dl)
@@ -264,8 +291,6 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 			}
 		}
 	}
-	dispatcher.Close()
-	r.checkDownloads(dispatcher.Collect())
 	return nil
 }
 
@@ -316,7 +341,12 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 	if err != nil {
 		return err
 	}
+
+	//setup dispatcher
 	dispatcher := download.NewDownloadDispatcher(r.download_jobs)
+	defer r.checkDownloads(dispatcher.Collect())
+	defer dispatcher.Close()
+
 	posts := r.vb4PostList(body)
 	for _, post := range posts {
 		atts := post.attachments()
@@ -339,12 +369,17 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 				printFetchError(attUrl)
 				continue
 			}
-			dl.File = fmt.Sprintf("%s/%s", r.cc.output, name)
+			//set download directory
+			if err := dl.SetDir(r.cc.output); err != nil {
+				log.Error(err)
+				continue
+			}
+			//set download filename
+			dl.SetFile(name)
+			//run download
 			dispatcher.Dispatch(dl)
 		}
 	}
-	dispatcher.Close()
-	r.checkDownloads(dispatcher.Collect())
 	return nil
 }
 

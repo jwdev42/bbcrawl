@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -144,7 +145,11 @@ type FSDirectory struct {
 }
 
 func (v *FSDirectory) Set(s string) error {
-	fp, err := os.Open(s)
+	p, err := filepath.Abs(s)
+	if err != nil {
+		return err
+	}
+	fp, err := os.Open(p)
 	if err != nil {
 		return err
 	}
@@ -154,9 +159,9 @@ func (v *FSDirectory) Set(s string) error {
 		return err
 	}
 	if !fpi.IsDir() {
-		return fmt.Errorf("File \"%s\" is not a directory!", s)
+		return fmt.Errorf("File \"%s\" is not a directory!", p)
 	}
-	v.Path = s
+	v.Path = p
 	return nil
 }
 
