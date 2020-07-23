@@ -33,29 +33,21 @@ type baseCrawler struct {
 	cookie_setup  bool
 	debug         bool
 	debug_counter int
-	download_jobs int
+	dispatcher    *download.DownloadDispatcher
 	excluded      []*url.URL
 	redirect      func(*http.Request, []*http.Request) error
+	yield         chan int
 }
 
 func newBaseCrawler(cc *CrawlContext) *baseCrawler {
-	return &baseCrawler{
+	bc := &baseCrawler{
 		cc: cc, client: new(http.Client),
-		download_jobs: DEFAULT_DL_JOBS,
-		excluded:      make([]*url.URL, 0, 1),
-		redirect:      logRedirect,
+		dispatcher: download.NewDownloadDispatcher(DEFAULT_DL_JOBS),
+		excluded:   make([]*url.URL, 0, 1),
+		redirect:   logRedirect,
 	}
-}
-
-//checkDownloads loops through finished downloads and prints to the logger whether the download was successful or not.
-func (c *baseCrawler) checkDownloads(downloads []*download.Download) {
-	for _, dl := range downloads {
-		if dl.Err != nil {
-			log.Error(fmt.Errorf("Download failed: %w: %s", dl.Err, dl.Addr.String()))
-		} else {
-			log.Info(fmt.Sprintf("Download finished: %s", dl.Addr.String()))
-		}
-	}
+	bc.evaluateDownloads()
+	return bc
 }
 
 func (c *baseCrawler) debug_DumpHeader(dir, name string, header http.Header) {
@@ -85,6 +77,21 @@ func (c *baseCrawler) debug_DumpHeader(dir, name string, header http.Header) {
 			return
 		}
 	}
+}
+
+func (c *baseCrawler) evaluateDownloads() {
+	c.yield = make(chan int)
+	f := func() {
+		for dl := c.dispatcher.Collect(); dl != nil; dl = c.dispatcher.Collect() {
+			if dl.Err != nil {
+				log.Error(fmt.Errorf("Download failed %q: %w", dl.Addr.String(), dl.Err))
+			} else {
+				log.Info(fmt.Sprintf("Downloaded %q", dl.Addr.String))
+			}
+		}
+		c.yield <- 1
+	}
+	go f()
 }
 
 //getPage receives a http response by issuing a "GET" request on url "page". This function has 3 side effects.
@@ -150,6 +157,11 @@ func (c *baseCrawler) SetOptions(args []string) error {
 	return nil
 }
 
+func (c *baseCrawler) Finish() {
+	c.dispatcher.Close()
+	<-c.yield
+}
+
 //FileCrawler is a crawler that treats every input from the pager as a file that needs to be downloaded.
 type FileCrawler struct {
 	*baseCrawler
@@ -170,11 +182,6 @@ func (r *FileCrawler) Crawl(u *url.URL) error {
 		filename = fmt.Sprintf("%d - %s", page, name)
 	}
 
-	//setup dispatcher
-	disp := download.NewDownloadDispatcher(1)
-	defer r.checkDownloads(disp.Collect())
-	defer disp.Close()
-
 	//setup Download struct
 	dl := &download.Download{Client: r.client, Addr: u}
 	if err := dl.SetDir(r.cc.output); err != nil {
@@ -183,7 +190,7 @@ func (r *FileCrawler) Crawl(u *url.URL) error {
 	dl.SetFile(filename)
 
 	//run download
-	disp.Dispatch(dl)
+	r.dispatcher.Dispatch(dl)
 	return nil
 }
 
@@ -238,11 +245,6 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 		nodes = elementsByTagAndAttrs(body, imgtag, r.attrs)
 	}
 
-	//setup dispatcher
-	dispatcher := download.NewDownloadDispatcher(r.download_jobs)
-	defer r.checkDownloads(dispatcher.Collect())
-	defer dispatcher.Close()
-
 	for _, n := range nodes {
 		for _, a := range n.Attr {
 			if a.Key == "src" {
@@ -285,7 +287,7 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 					log.Debug(fmt.Errorf("Skipping download (on exclusion list): %s", dl.Addr.String()))
 					break
 				}
-				dispatcher.Dispatch(dl)
+				r.dispatcher.Dispatch(dl)
 				picid++
 				break
 			}
@@ -342,11 +344,6 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 		return err
 	}
 
-	//setup dispatcher
-	dispatcher := download.NewDownloadDispatcher(r.download_jobs)
-	defer r.checkDownloads(dispatcher.Collect())
-	defer dispatcher.Close()
-
 	posts := r.vb4PostList(body)
 	for _, post := range posts {
 		atts := post.attachments()
@@ -377,7 +374,7 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 			//set download filename
 			dl.SetFile(name)
 			//run download
-			dispatcher.Dispatch(dl)
+			r.dispatcher.Dispatch(dl)
 		}
 	}
 	return nil

@@ -69,8 +69,11 @@ func (r *threadcounter) zero() bool {
 type Download struct {
 	Client        *http.Client
 	Addr          *url.URL
+	id            uint64 //the id is assigned by the DownloadDispatcher
 	dir           string
 	file          string
+	tempname      bool
+	header        http.Header
 	AllowOverride bool
 	Err           error
 }
@@ -97,6 +100,25 @@ func (dl *Download) Exists() (bool, error) {
 
 func (dl *Download) File() string {
 	return dl.file
+}
+
+func (dl *Download) NameFromHeader() (string, error) {
+	var filename string
+	header := dl.header
+	if header == nil {
+		panic("NameFromHeader is not supposed to be called until the download has finished")
+	}
+	for _, v := range header.Values("Content-disposition") {
+		field := strings.TrimSpace(v)
+		if isHttpFileNameField(field) {
+			filename = httpFileNameFieldValue(field)
+			if filename == "" {
+				return "", fmt.Errorf("malformed filename in Content-disposition header: %s", field)
+			}
+			break
+		}
+	}
+	return filename, nil
 }
 
 //Path returns the absolute path to the (to be) downloaded file. Panics if the field "dir" or "file" is zero-valued.
@@ -133,23 +155,23 @@ func (dl *Download) SetFile(file string) {
 		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", file, os.PathSeparator))
 	}
 	dl.file = file
+	dl.tempname = false
 }
 
 type DownloadDispatcher struct {
-	max      int
-	counter  *threadcounter
-	resc     chan *Download //yields the state of finished download routines
-	finished []*Download    //collector will receive messages from resc and write it into finished
+	max       int
+	counter   *threadcounter
+	dlcounter *DownloadCounter
+	resc      chan *Download //yields the state of finished download routines
 }
 
 func NewDownloadDispatcher(downloads int) *DownloadDispatcher {
 	dd := DownloadDispatcher{
-		max:      downloads,
-		counter:  &threadcounter{m: new(sync.Mutex), max: downloads},
-		resc:     make(chan *Download, downloads),
-		finished: make([]*Download, 0, downloads*2),
+		max:       downloads,
+		counter:   &threadcounter{m: new(sync.Mutex), max: downloads},
+		dlcounter: NewDownloadCounter(),
+		resc:      make(chan *Download, downloads),
 	}
-	go dd.collector()
 	return &dd
 }
 
@@ -158,6 +180,7 @@ func (r *DownloadDispatcher) ChooChoo() {
 }
 
 func (r *DownloadDispatcher) Dispatch(dl *Download) {
+	dl.id = r.dlcounter.Count()
 	for !r.counter.inc() {
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -171,40 +194,12 @@ func (r *DownloadDispatcher) Close() {
 	close(r.resc)
 }
 
-func (r *DownloadDispatcher) Collect() []*Download {
-	return r.finished
-}
-
-func (r *DownloadDispatcher) collector() {
-	for dl := range r.resc {
-		r.finished = append(r.finished, dl)
+func (r *DownloadDispatcher) Collect() *Download {
+	dl := <-r.resc
+	if dl != nil {
 		r.counter.dec()
 	}
-}
-
-func (r *DownloadDispatcher) nameFromHeader(dl *Download) error {
-	var filename string
-	resp, err := dl.Client.Head(dl.Addr.String())
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	header := resp.Header
-	for _, v := range header.Values("Content-disposition") {
-		field := strings.TrimSpace(v)
-		if isHttpFileNameField(field) {
-			filename = httpFileNameFieldValue(field)
-			if filename == "" {
-				return fmt.Errorf("malformed filename in Content-disposition header: %s", field)
-			}
-			break
-		}
-	}
-	if filename == "" {
-		return newNoFilenameInContentDisposition(dl.Addr.String())
-	}
-	dl.file = filename
-	return nil
+	return dl
 }
 
 func (r *DownloadDispatcher) prepareJob(dl *Download) error {
@@ -212,17 +207,10 @@ func (r *DownloadDispatcher) prepareJob(dl *Download) error {
 	if len(dl.dir) == 0 {
 		panic("directory not set")
 	}
-
-	//obtain filename from http header if no file was given
+	//use an automatically generated file name if none was provided
 	if len(dl.file) == 0 {
-		if err := r.nameFromHeader(dl); err != nil {
-			return err
-		}
-	}
-
-	//safety check
-	if len(dl.file) == 0 {
-		panic("filename not set")
+		dl.file = fmt.Sprintf("%d.download", dl.id)
+		dl.tempname = true
 	}
 
 	//prevent an overridden file if not allowed
@@ -254,6 +242,9 @@ func (r *DownloadDispatcher) downloadJob(dl *Download) {
 		return
 	}
 	defer resp.Body.Close()
+
+	//copy http header fields
+	dl.header = resp.Header.Clone()
 
 	//create the local file
 	f, err := os.Create(dl.Path())
