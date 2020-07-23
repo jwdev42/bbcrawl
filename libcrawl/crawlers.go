@@ -86,7 +86,7 @@ func (c *baseCrawler) evaluateDownloads() {
 			if dl.Err != nil {
 				log.Error(fmt.Errorf("Download failed %q: %w", dl.Addr.String(), dl.Err))
 			} else {
-				log.Info(fmt.Sprintf("Downloaded %q", dl.Addr.String))
+				log.Info(fmt.Sprintf("Downloaded %q", dl.Addr.String()))
 			}
 		}
 		c.yield <- 1

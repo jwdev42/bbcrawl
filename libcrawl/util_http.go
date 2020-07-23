@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 )
 
 func noRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) > 0 {
 		lastReq := via[len(via)-1]
-		return fmt.Errorf("Redirection: %q → %q", lastReq.URL.String(), req.URL.String())
+		return fmt.Errorf("Attempted Redirection: %q → %q", lastReq.URL.String(), req.URL.String())
 	}
 	return nil
 }
@@ -27,5 +26,6 @@ func logRedirect(req *http.Request, via []*http.Request) error {
 }
 
 func printFetchError(url *url.URL) {
-	fmt.Fprintf(os.Stderr, "File %q could not be downloaded.", url.String())
+	//BUG(jw): Password needs to be filtered out of the url before printing it.
+	log.Error(fmt.Sprintf("File %q could not be downloaded.", url.String()))
 }
