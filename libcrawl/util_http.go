@@ -18,7 +18,7 @@ func noRedirect(req *http.Request, via []*http.Request) error {
 func logRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) > 0 {
 		lastReq := via[len(via)-1]
-		fmt.Printf("Redirection: %q → %q\n", lastReq.URL.String(), req.URL.String())
+		log.Notice(fmt.Sprintf("Redirection: %q → %q\n", lastReq.URL.String(), req.URL.String()))
 	}
 	if len(via) > DEFAULT_REDIRECTS {
 		return fmt.Errorf("Too many redirects")
