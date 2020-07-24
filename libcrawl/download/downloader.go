@@ -130,6 +130,27 @@ func (dl *Download) Path() string {
 	return filepath.Join(dl.dir, dl.file)
 }
 
+//Rename changes the file name of a download. If the download already exists, it will be renamed on the file system.
+func (dl *Download) Rename(name string) error {
+	if strings.IndexByte(name, os.PathSeparator) >= 0 {
+		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", name, os.PathSeparator))
+	}
+	file, err := os.Open(dl.Path())
+	if os.IsNotExist(err) {
+		dl.SetFile(name)
+		return nil
+	} else if err != nil {
+		return err
+	}
+	file.Close()
+	newpath := filepath.Join(dl.Dir(), name)
+	if err := os.Rename(dl.Path(), newpath); err != nil {
+		return err
+	}
+	dl.SetFile(name)
+	return nil
+}
+
 //SetDir sets the download directory. Panics if dir is not an absolute path.
 func (dl *Download) SetDir(dir string) error {
 	if !filepath.IsAbs(dir) {
@@ -151,11 +172,11 @@ func (dl *Download) SetDir(dir string) error {
 	return nil
 }
 
-func (dl *Download) SetFile(file string) {
-	if strings.IndexByte(file, os.PathSeparator) >= 0 {
-		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", file, os.PathSeparator))
+func (dl *Download) SetFile(name string) {
+	if strings.IndexByte(name, os.PathSeparator) >= 0 {
+		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", name, os.PathSeparator))
 	}
-	dl.file = file
+	dl.file = name
 	dl.tempname = false
 }
 
