@@ -39,6 +39,7 @@ type CrawlerInterface interface {
 	Crawl(*url.URL) error
 	Finish()
 	SetOptions([]string) error
+	Setup()
 }
 
 type CrawlContext struct {
@@ -96,6 +97,7 @@ func NewCrawlContext(pager string, crawler string, defaultDir string) (*CrawlCon
 }
 
 func Crawl(cc *CrawlContext) error {
+	cc.Crawler.Setup()
 	defer cc.Crawler.Finish()
 	for url, err := cc.Pager.Next(); url != nil; {
 		if err != nil {

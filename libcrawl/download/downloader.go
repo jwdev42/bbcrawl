@@ -76,6 +76,7 @@ type Download struct {
 	header        http.Header
 	AllowOverride bool
 	Err           error
+	AfterDownload func(*Download)
 }
 
 func (dl *Download) Dir() string {
@@ -166,6 +167,9 @@ type DownloadDispatcher struct {
 }
 
 func NewDownloadDispatcher(downloads int) *DownloadDispatcher {
+	if downloads < 1 {
+		panic("parameter downloads must be > 0")
+	}
 	dd := DownloadDispatcher{
 		max:       downloads,
 		counter:   &threadcounter{m: new(sync.Mutex), max: downloads},
@@ -258,6 +262,11 @@ func (r *DownloadDispatcher) downloadJob(dl *Download) {
 	if _, err := io.Copy(f, resp.Body); err != nil {
 		dl.Err = err
 		return
+	}
+
+	//call AfterDownload routine if available
+	if dl.AfterDownload != nil {
+		dl.AfterDownload(dl)
 	}
 }
 

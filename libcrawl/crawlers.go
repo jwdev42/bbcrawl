@@ -34,20 +34,17 @@ type baseCrawler struct {
 	debug         bool
 	debug_counter int
 	dispatcher    *download.DownloadDispatcher
+	yield         chan int
 	excluded      []*url.URL
 	redirect      func(*http.Request, []*http.Request) error
-	yield         chan int
 }
 
 func newBaseCrawler(cc *CrawlContext) *baseCrawler {
-	bc := &baseCrawler{
+	return &baseCrawler{
 		cc: cc, client: new(http.Client),
-		dispatcher: download.NewDownloadDispatcher(DEFAULT_DL_JOBS),
-		excluded:   make([]*url.URL, 0, 1),
-		redirect:   logRedirect,
+		excluded: make([]*url.URL, 0, 1),
+		redirect: logRedirect,
 	}
-	bc.evaluateDownloads()
-	return bc
 }
 
 func (c *baseCrawler) debug_DumpHeader(dir, name string, header http.Header) {
@@ -94,8 +91,8 @@ func (c *baseCrawler) evaluateDownloads() {
 	go f()
 }
 
-//getPage receives a http response by issuing a "GET" request on url "page". This function has 3 side effects.
-//Firstly the http client's CheckRedirect function is set to the crawler's "redirect" member. Secondly a new cookie jar
+//getPage receives an http response by issuing a "GET" request on url "page". This function has 3 side effects.
+//At first the http client's CheckRedirect function is set to baseCrawler's "redirect" member. Secondly a new cookie jar
 //is deployed to the http client if there isn't already one. Thirdly the cookie jar is filled with the CrawlContext's cookie slice,
 //but only if the cookie jar did not exist before (i.e. on the first call).
 func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
@@ -141,6 +138,22 @@ func (c *baseCrawler) redirection(redirect func(*http.Request, []*http.Request) 
 	c.client.CheckRedirect = redirect
 }
 
+func (c *baseCrawler) setup(jobs int) {
+	c.dispatcher = download.NewDownloadDispatcher(jobs)
+	c.yield = make(chan int)
+	f := func() {
+		for dl := c.dispatcher.Collect(); dl != nil; dl = c.dispatcher.Collect() {
+			if dl.Err != nil {
+				log.Error(fmt.Errorf("Download failed %q: %w", dl.Addr.String(), dl.Err))
+			} else {
+				log.Info(fmt.Sprintf("Download complete: %s → %s", dl.Addr.String(), dl.File()))
+			}
+		}
+		c.yield <- 1
+	}
+	go f()
+}
+
 func (c *baseCrawler) SetOptions(args []string) error {
 	set := flag.NewFlagSet("baseCrawler", flag.ContinueOnError)
 	common := addCommonCrawlerFlags(set)
@@ -157,9 +170,18 @@ func (c *baseCrawler) SetOptions(args []string) error {
 	return nil
 }
 
+func (c *baseCrawler) Setup() {
+	c.setup(DEFAULT_DL_JOBS)
+}
+
+//Finish() is a default cleanup function for crawlers, If baseCrawler's Setup() or setup() method was used
+//Finish() closes baseCrawler's DownloadDispatcher and yields until all Downloads have been finished.
+//Otherwise it does nothing.
 func (c *baseCrawler) Finish() {
-	c.dispatcher.Close()
-	<-c.yield
+	if c.yield != nil {
+		c.dispatcher.Close()
+		<-c.yield
+	}
 }
 
 //FileCrawler is a crawler that treats every input from the pager as a file that needs to be downloaded.
@@ -204,25 +226,6 @@ func NewImageCrawler(cc *CrawlContext) (CrawlerInterface, error) {
 		baseCrawler: newBaseCrawler(cc),
 	}
 	return crawler, nil
-}
-
-func (r *ImageCrawler) SetOptions(args []string) error {
-	set := flag.NewFlagSet("ImageCrawler", flag.ContinueOnError)
-	common := addCommonCrawlerFlags(set)
-	cmd_attrs := make(cmdline.Attrs)
-	set.Var(cmd_attrs, "attrs", "Download only images that match the declared node attributes")
-	if err := set.Parse(args); err != nil {
-		return err
-	}
-	r.excluded = common.excludedURLs.URLs
-	if *common.allowRedirect {
-		r.redirect = logRedirect
-	} else {
-		r.redirect = noRedirect
-	}
-	r.debug = bool(*common.debugMode)
-	r.attrs = cmdAttrs2htmlAttrs(cmd_attrs)
-	return nil
 }
 
 func (r *ImageCrawler) Crawl(url *url.URL) error {
@@ -293,6 +296,25 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (r *ImageCrawler) SetOptions(args []string) error {
+	set := flag.NewFlagSet("ImageCrawler", flag.ContinueOnError)
+	common := addCommonCrawlerFlags(set)
+	cmd_attrs := make(cmdline.Attrs)
+	set.Var(cmd_attrs, "attrs", "Download only images that match the declared node attributes")
+	if err := set.Parse(args); err != nil {
+		return err
+	}
+	r.excluded = common.excludedURLs.URLs
+	if *common.allowRedirect {
+		r.redirect = logRedirect
+	} else {
+		r.redirect = noRedirect
+	}
+	r.debug = bool(*common.debugMode)
+	r.attrs = cmdAttrs2htmlAttrs(cmd_attrs)
 	return nil
 }
 
