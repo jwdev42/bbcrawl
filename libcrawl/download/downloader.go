@@ -79,6 +79,18 @@ type Download struct {
 	AfterDownload func(*Download)
 }
 
+func (dl *Download) checkFilename(name string) {
+	if len(dl.dir) == 0 {
+		panic("Filename cannot be set until the directory is set")
+	}
+	if len(name) == 0 {
+		panic("Filename cannot be empty")
+	}
+	if strings.IndexByte(name, os.PathSeparator) >= 0 {
+		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", name, os.PathSeparator))
+	}
+}
+
 func (dl *Download) Dir() string {
 	return dl.dir
 }
@@ -110,14 +122,19 @@ func (dl *Download) NameFromHeader() (string, error) {
 		panic("NameFromHeader is not supposed to be called until the download has finished")
 	}
 	for _, v := range header.Values("Content-disposition") {
-		field := strings.TrimSpace(v)
-		if isHttpFileNameField(field) {
-			filename = httpFileNameFieldValue(field)
-			if filename == "" {
-				return "", fmt.Errorf("malformed filename in Content-disposition header: %s", field)
+		for _, field := range strings.Split(v, ";") {
+			trimmedfield := strings.TrimSpace(field)
+			if isHttpFileNameField(trimmedfield) {
+				filename = httpFileNameFieldValue(trimmedfield)
+				if filename == "" {
+					return "", fmt.Errorf("malformed filename in Content-disposition header: %s", field)
+				}
+				break
 			}
-			break
 		}
+	}
+	if filename == "" {
+		return "", fmt.Errorf("No Content-disposition header field found")
 	}
 	return filename, nil
 }
@@ -132,9 +149,7 @@ func (dl *Download) Path() string {
 
 //Rename changes the file name of a download. If the download already exists, it will be renamed on the file system.
 func (dl *Download) Rename(name string) error {
-	if strings.IndexByte(name, os.PathSeparator) >= 0 {
-		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", name, os.PathSeparator))
-	}
+	dl.checkFilename(name)
 	file, err := os.Open(dl.Path())
 	if os.IsNotExist(err) {
 		dl.SetFile(name)
@@ -143,7 +158,16 @@ func (dl *Download) Rename(name string) error {
 		return err
 	}
 	file.Close()
-	newpath := filepath.Join(dl.Dir(), name)
+	newpath := filepath.Join(dl.dir, name)
+
+	//abort if the new file already exists
+	if newfile, err := os.Open(newpath); err == nil {
+		newfile.Close()
+		return fmt.Errorf("File already exists")
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
 	if err := os.Rename(dl.Path(), newpath); err != nil {
 		return err
 	}
@@ -173,9 +197,7 @@ func (dl *Download) SetDir(dir string) error {
 }
 
 func (dl *Download) SetFile(name string) {
-	if strings.IndexByte(name, os.PathSeparator) >= 0 {
-		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", name, os.PathSeparator))
-	}
+	dl.checkFilename(name)
 	dl.file = name
 	dl.tempname = false
 }

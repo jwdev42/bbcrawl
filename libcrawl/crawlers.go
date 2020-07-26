@@ -76,21 +76,6 @@ func (c *baseCrawler) debug_DumpHeader(dir, name string, header http.Header) {
 	}
 }
 
-func (c *baseCrawler) evaluateDownloads() {
-	c.yield = make(chan int)
-	f := func() {
-		for dl := c.dispatcher.Collect(); dl != nil; dl = c.dispatcher.Collect() {
-			if dl.Err != nil {
-				log.Error(fmt.Errorf("Download failed %q: %w", dl.Addr.String(), dl.Err))
-			} else {
-				log.Info(fmt.Sprintf("Downloaded %q", dl.Addr.String()))
-			}
-		}
-		c.yield <- 1
-	}
-	go f()
-}
-
 //getPage receives an http response by issuing a "GET" request on url "page". This function has 3 side effects.
 //At first the http client's CheckRedirect function is set to baseCrawler's "redirect" member. Secondly a new cookie jar
 //is deployed to the http client if there isn't already one. Thirdly the cookie jar is filled with the CrawlContext's cookie slice,
@@ -144,7 +129,11 @@ func (c *baseCrawler) setup(jobs int) {
 	f := func() {
 		for dl := c.dispatcher.Collect(); dl != nil; dl = c.dispatcher.Collect() {
 			if dl.Err != nil {
-				log.Error(fmt.Errorf("Download failed %q: %w", dl.Addr.String(), dl.Err))
+				if err, ok := dl.Err.(download.RenameError); ok {
+					log.Error(fmt.Errorf("%s: %s", err, err.Unwrap()))
+				} else {
+					log.Error(fmt.Errorf("Download failed %q: %w", dl.Addr.String(), dl.Err))
+				}
 			} else {
 				log.Info(fmt.Sprintf("Download complete: %s → %s", dl.Addr.String(), dl.File()))
 			}
@@ -228,11 +217,11 @@ func NewImageCrawler(cc *CrawlContext) (CrawlerInterface, error) {
 	return crawler, nil
 }
 
-func (r *ImageCrawler) Crawl(url *url.URL) error {
+func (r *ImageCrawler) Crawl(u *url.URL) error {
 	const imgtag string = "img"
 	picid := 1
 	page := r.cc.Pager.PageNum()
-	resp, err := r.getPage(url)
+	resp, err := r.getPage(u)
 	if err != nil {
 		return err
 	}
@@ -275,12 +264,12 @@ func (r *ImageCrawler) Crawl(url *url.URL) error {
 				//set file
 				dl.SetFile(filename)
 				//set download address
-				if dl.Addr, err = url.Parse(a.Val); err != nil {
+				if dl.Addr, err = u.Parse(a.Val); err != nil {
 					log.Error(fmt.Errorf("Download error: %w", err))
 					break
 				}
 				if !dl.Addr.IsAbs() {
-					dl.Addr, err = rel2absURL(url, dl.Addr)
+					dl.Addr, err = rel2absURL(u, dl.Addr)
 					if err != nil {
 						log.Error(fmt.Errorf("Download error: %w", err))
 						break
@@ -329,6 +318,8 @@ func (r *ImageCrawler) isExcluded(url *url.URL) bool {
 
 type VB4AttachmentCrawler struct {
 	*baseCrawler
+	headernames bool
+	page        *url.URL
 }
 
 type vb4post html.Node
@@ -341,7 +332,9 @@ func NewVB4AttachmentCrawler(cc *CrawlContext) (CrawlerInterface, error) {
 
 func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
 	set := flag.NewFlagSet("VB4AttachmentCrawler", flag.ContinueOnError)
+	headernames := new(cmdline.Boolean)
 	common := addCommonCrawlerFlags(set)
+	set.Var(headernames, "names-from-header", "if true, the downloader will use the file names sent via the http header")
 	if err := set.Parse(args); err != nil {
 		return err
 	}
@@ -352,11 +345,13 @@ func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
 		r.redirect = noRedirect
 	}
 	r.debug = bool(*common.debugMode)
+	r.headernames = bool(*headernames)
 	return nil
 }
 
-func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
-	resp, err := r.getPage(url)
+func (r *VB4AttachmentCrawler) Crawl(u *url.URL) error {
+	r.page = u
+	resp, err := r.getPage(u)
 	if err != nil {
 		return err
 	}
@@ -365,8 +360,10 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 	if err != nil {
 		return err
 	}
-
 	posts := r.vb4PostList(body)
+	if posts == nil {
+		log.Error(fmt.Sprintf("No posts found at page %q", u.String()))
+	}
 	for _, post := range posts {
 		atts := post.attachments()
 		for _, att := range atts {
@@ -376,25 +373,32 @@ func (r *VB4AttachmentCrawler) Crawl(url *url.URL) error {
 				continue
 			}
 			if !attUrl.IsAbs() {
-				attUrl, err = rel2absURL(url, attUrl)
+				attUrl, err = rel2absURL(u, attUrl)
 				if err != nil {
 					printFetchError(attUrl)
 					continue
 				}
 			}
 			dl := &download.Download{Client: r.client, Addr: attUrl}
-			name := fileNameFromURL(attUrl)
-			if name == "" {
-				printFetchError(attUrl)
-				continue
+
+			//determine download filename
+			postid := post.id()
+			if r.headernames {
+				dl.AfterDownload = download.ADNameFromHeader(postid)
+			} else {
+				name := fileNameFromURL(attUrl)
+				if name == "" {
+					printFetchError(attUrl)
+					continue
+				}
+				dl.SetFile(fmt.Sprintf("%s - %s", postid, name))
 			}
 			//set download directory
 			if err := dl.SetDir(r.cc.output); err != nil {
 				log.Error(err)
 				continue
 			}
-			//set download filename
-			dl.SetFile(name)
+
 			//run download
 			r.dispatcher.Dispatch(dl)
 		}
@@ -407,15 +411,16 @@ func (r *VB4AttachmentCrawler) vb4PostList(node *html.Node) []*vb4post {
 	posts := elementByID(node, searchForID)
 	if posts == nil {
 		return nil
-		//TODO: log info that no posts have been found
 	}
 	nc := elementsByAttrMatch(posts, "id", vb4_regex_postid)
+	if len(nc.nodes) == 0 {
+		return nil
+	}
 	vb4posts := make([]*vb4post, len(nc.nodes))
 	for i := range nc.nodes {
 		vb4posts[i] = (*vb4post)(nc.nodes[i])
 		if log.Level() == logger.Level_Debug {
-			page := r.cc.Pager.PageNum()
-			log.Debug(fmt.Sprintf("VB4AttachmentCrawler: Page %d, found post %q", page, vb4posts[i].id()))
+			log.Debug(fmt.Sprintf("VB4AttachmentCrawler: found post %q", vb4posts[i].id()))
 		}
 	}
 	return vb4posts
@@ -428,7 +433,7 @@ func (r *vb4post) id() string {
 			return re.FindString(a.Val)
 		}
 	}
-	return ""
+	panic("vb4post.id() did not find a post id, that should not have happened")
 }
 
 func (r *vb4post) attachments() []*vb4attachment {
