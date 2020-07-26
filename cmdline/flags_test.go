@@ -83,6 +83,28 @@ func TestSingleURL(t *testing.T) {
 	}
 }
 
+func TestIntRange(t *testing.T) {
+	ir := &IntRange{}
+	if ir.String() != "0,0" {
+		t.Errorf("%s: Expected \"0,0\", got %q", t.Name(), ir.String())
+	}
+	if err := ir.Set("3,3"); err != nil {
+		t.Error(err)
+	}
+	if ir.String() != "3,3" {
+		t.Errorf("%s: Expected \"3,3\", got %q", t.Name(), ir.String())
+	}
+	if err := ir.Set("4,3"); err == nil {
+		t.Errorf("%s: Expected an error", t.Name())
+	}
+	if err := ir.Set("23, 42"); err != nil {
+		t.Error(err)
+	}
+	if ir.String() != "23,42" {
+		t.Errorf("%s: Expected \"23,42\", got %q", t.Name(), ir.String())
+	}
+}
+
 func TestFSDirectory(t *testing.T) {
 	dir := "/var"
 	nodir := "allyourbasearebelongtous"

@@ -140,6 +140,32 @@ func (v *SingleURL) String() string {
 	return v.URL.String()
 }
 
+type IntRange struct {
+	Range [2]int
+}
+
+func (v *IntRange) Set(s string) error {
+	splitted := strings.Split(s, ",")
+	if len(splitted) != 2 {
+		return fmt.Errorf("IntRange needs 2 values")
+	}
+	for i, str := range splitted {
+		var err error
+		v.Range[i], err = strconv.Atoi(strings.TrimSpace(str))
+		if err != nil {
+			return err
+		}
+	}
+	if v.Range[1] < v.Range[0] {
+		return fmt.Errorf("the second integer must be greater or equal than the first")
+	}
+	return nil
+}
+
+func (v *IntRange) String() string {
+	return fmt.Sprintf("%d,%d", v.Range[0], v.Range[1])
+}
+
 type FSDirectory struct {
 	Path string
 }
