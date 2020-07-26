@@ -198,8 +198,9 @@ func (r *FileCrawler) Crawl(u *url.URL) error {
 	if err := dl.SetDir(r.cc.output); err != nil {
 		return err
 	}
-	dl.SetFile(filename)
-
+	if len(filename) > 0 {
+		dl.SetFile(filename)
+	}
 	//run download
 	r.dispatcher.Dispatch(dl)
 	return nil
