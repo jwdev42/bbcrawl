@@ -1,3 +1,6 @@
+/* This file is part of bbcrawl, ©2020 Jörg Walter
+ *  This software is licensed under the "GNU General Public License version 3" */
+
 package libcrawl
 
 import (
