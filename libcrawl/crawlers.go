@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	CRAWLER_VB4_ATTACHMENTS = "vb4-attachments"
-	CRAWLER_IMAGE           = "img"
-	CRAWLER_FILE            = "file"
+	CRAWLER_VB_ATTACHMENTS = "vb-attachments"
+	CRAWLER_IMAGE          = "img"
+	CRAWLER_FILE           = "file"
 )
 
 var vb4_regex_postid *regexp.Regexp = regexp.MustCompile("^post_?[0-9]+$")
@@ -320,22 +320,22 @@ func (r *ImageCrawler) isExcluded(url *url.URL) bool {
 	return false
 }
 
-type VB4AttachmentCrawler struct {
+type VBAttachmentCrawler struct {
 	*baseCrawler
 	headernames bool
 	page        *url.URL
 }
 
-type vb4post html.Node
-type vb4attachment html.Node
+type vbpost html.Node
+type vbattachment html.Node
 
-func NewVB4AttachmentCrawler(cc *CrawlContext) (CrawlerInterface, error) {
-	crawler := &VB4AttachmentCrawler{baseCrawler: newBaseCrawler(cc)}
+func NewVBAttachmentCrawler(cc *CrawlContext) (CrawlerInterface, error) {
+	crawler := &VBAttachmentCrawler{baseCrawler: newBaseCrawler(cc)}
 	return crawler, nil
 }
 
-func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
-	set := flag.NewFlagSet("VB4AttachmentCrawler", flag.ContinueOnError)
+func (r *VBAttachmentCrawler) SetOptions(args []string) error {
+	set := flag.NewFlagSet("VBAttachmentCrawler", flag.ContinueOnError)
 	headernames := new(cmdline.Boolean)
 	common := addCommonCrawlerFlags(set)
 	set.Var(headernames, "names-from-header", "if true, the downloader will use the file names sent via the http header")
@@ -353,7 +353,7 @@ func (r *VB4AttachmentCrawler) SetOptions(args []string) error {
 	return nil
 }
 
-func (r *VB4AttachmentCrawler) Crawl(u *url.URL) error {
+func (r *VBAttachmentCrawler) Crawl(u *url.URL) error {
 	r.page = u
 	resp, err := r.getPage(u)
 	if err != nil {
@@ -410,7 +410,7 @@ func (r *VB4AttachmentCrawler) Crawl(u *url.URL) error {
 	return nil
 }
 
-func (r *VB4AttachmentCrawler) vb4PostList(node *html.Node) []*vb4post {
+func (r *VBAttachmentCrawler) vb4PostList(node *html.Node) []*vbpost {
 	const searchForID string = "posts"
 	posts := elementByID(node, searchForID)
 	if posts == nil {
@@ -420,31 +420,31 @@ func (r *VB4AttachmentCrawler) vb4PostList(node *html.Node) []*vb4post {
 	if len(nc.nodes) == 0 {
 		return nil
 	}
-	vb4posts := make([]*vb4post, len(nc.nodes))
+	vbposts := make([]*vbpost, len(nc.nodes))
 	for i := range nc.nodes {
-		vb4posts[i] = (*vb4post)(nc.nodes[i])
+		vbposts[i] = (*vbpost)(nc.nodes[i])
 		if log.Level() == logger.Level_Debug {
-			log.Debug(fmt.Sprintf("VB4AttachmentCrawler: found post %q", vb4posts[i].id()))
+			log.Debug(fmt.Sprintf("VBAttachmentCrawler: found post %q", vbposts[i].id()))
 		}
 	}
-	return vb4posts
+	return vbposts
 }
 
-func (r *vb4post) id() string {
+func (r *vbpost) id() string {
 	for _, a := range r.Attr {
 		if a.Key == "id" && vb4_regex_postid.MatchString(a.Val) {
 			re := regexp.MustCompile(`[0-9]+`)
 			return re.FindString(a.Val)
 		}
 	}
-	panic("vb4post.id() did not find a post id, that should not have happened")
+	panic("vbpost.id() did not find a post id, that should not have happened")
 }
 
-func (r *vb4post) attachments() []*vb4attachment {
+func (r *vbpost) attachments() []*vbattachment {
 	nc := elementsByAttrMatch((*html.Node)(r), "id", vb4_regex_attachmentid)
-	vb4att := make([]*vb4attachment, len(nc.nodes))
+	vb4att := make([]*vbattachment, len(nc.nodes))
 	for i := range nc.nodes {
-		vb4att[i] = (*vb4attachment)(nc.nodes[i])
+		vb4att[i] = (*vbattachment)(nc.nodes[i])
 		if log.Level() == logger.Level_Debug {
 			var id string
 			for _, attr := range nc.nodes[i].Attr {
@@ -453,13 +453,13 @@ func (r *vb4post) attachments() []*vb4attachment {
 					break
 				}
 			}
-			log.Debug(fmt.Sprintf("VB4AttachmentCrawler: Found attachment %q", id))
+			log.Debug(fmt.Sprintf("VBAttachmentCrawler: Found attachment %q", id))
 		}
 	}
 	return vb4att
 }
 
-func (r *vb4attachment) href() (*url.URL, error) {
+func (r *vbattachment) href() (*url.URL, error) {
 	for _, a := range r.Attr {
 		if a.Key == "href" {
 			url, err := url.Parse(a.Val)
