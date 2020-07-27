@@ -139,7 +139,6 @@ func (r *URLCuttingPager) SetOptions(args []string) error {
 	startp, endp := set.Int("start", -1, "first page"), set.Int("end", -1, "last page")
 	stepp := set.Int("step", 1, "number of pages to advance with every page load")
 	digitsp := set.Int("digits", 0, "number of digits to fill, do not set for auto mode")
-	//BUG(jw) digits can be set less than needed to put in the biggest page number
 	startpagep := set.String("startpage", "", "if set, the given url will be used as the start page before using the regular url.")
 	set.Var(cut, "cut", "range in the url you want to cut out and replace with the page number")
 	if err := set.Parse(args); err != nil {
