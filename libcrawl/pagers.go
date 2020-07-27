@@ -12,7 +12,7 @@ import (
 const (
 	PAGER_VB4    = "vb4"
 	PAGER_QUERY  = "query"
-	PAGER_URLFMT = "format"
+	PAGER_URLCUT = "cutter"
 )
 
 type QueryPager struct {
@@ -97,52 +97,51 @@ func (r *QueryPager) SetUrl(addr string) error {
 	return nil
 }
 
-//URLFormatPager browses through the pages by having the url as a format string.
-type URLFormatPager struct {
-	end          int
-	page         int
-	step         int
-	adjust       int
-	startpage    *url.URL
-	usestartpage bool
-	fmtstr       string
+//URLCuttingPager browses through the pages by cutting out a part of itself and replacing that with an increasing number.
+type URLCuttingPager struct {
+	end, page, step, adjust       int
+	cut                           [2]int
+	startpage                     *url.URL
+	leftpart, rightpart, digitfmt string
 }
 
-func NewURLFormatPager(cc *CrawlContext) PagerInterface {
-	return new(URLFormatPager)
+func NewURLCuttingPager(cc *CrawlContext) PagerInterface {
+	return new(URLCuttingPager)
 }
 
-func (r *URLFormatPager) Next() (*url.URL, error) {
-	if r.usestartpage {
-		r.usestartpage = false
-		log.Debug(fmt.Sprintf("QueryPager: Sending url %q", r.startpage))
-		return r.startpage, nil
+func (r *URLCuttingPager) Next() (*url.URL, error) {
+	if r.startpage != nil {
+		ret := r.startpage
+		r.startpage = nil
+		return ret, nil
 	}
 	if r.page > r.end {
 		return nil, nil
 	}
-	u, err := url.Parse(fmt.Sprintf(r.fmtstr, r.page*r.step))
+	fmtstr := fmt.Sprintf("%%s%s%%s", r.digitfmt)
+	u, err := url.Parse(fmt.Sprintf(fmtstr, r.leftpart, r.page*r.step, r.rightpart))
 	if err != nil {
 		return nil, err
 	}
 	r.page++
-	log.Debug(fmt.Sprintf("QueryPager: Sending url %q", u))
 	return u, nil
 }
 
-func (r *URLFormatPager) PageNum() int {
+func (r *URLCuttingPager) PageNum() int {
 	return r.page - 1 + r.adjust
 }
 
-func (r *URLFormatPager) SetOptions(args []string) error {
-	var startpagep = new(cmdline.Boolean)
+func (r *URLCuttingPager) SetOptions(args []string) error {
+	var cut = new(cmdline.IntRange)
 	//setup
-	set := flag.NewFlagSet("URLFormatPager", flag.ContinueOnError)
+	set := flag.NewFlagSet("URLCuttingPager", flag.ContinueOnError)
 	adjp := set.Int("adjust", 0, "adjust the page reported to the crawler")
 	startp, endp := set.Int("start", -1, "first page"), set.Int("end", -1, "last page")
 	stepp := set.Int("step", 1, "number of pages to advance with every page load")
-	fmtstrp := set.String("format", "", "url format string")
-	set.Var(startpagep, "startpage", "if true, the url at the end of the command line will be used as the start page before using the format string. If false (default), that url will be ignored.")
+	digitsp := set.Int("digits", 0, "number of digits to fill, do not set for auto mode")
+	//BUG(jw) digits can be set less than needed to put in the biggest page number
+	startpagep := set.String("startpage", "", "if set, the given url will be used as the start page before using the regular url.")
+	set.Var(cut, "cut", "range in the url you want to cut out and replace with the page number")
 	if err := set.Parse(args); err != nil {
 		return err
 	}
@@ -150,29 +149,50 @@ func (r *URLFormatPager) SetOptions(args []string) error {
 	if *startp < 0 {
 		return fmt.Errorf("start not set or set to an illegal value")
 	}
+	if *startp > *endp {
+		return fmt.Errorf("end must not be smaller than start")
+	}
 	if *stepp < 1 {
 		return fmt.Errorf("step set to an illegal value")
 	}
-	if len(*fmtstrp) == 0 {
-		return fmt.Errorf("format not set")
+	if cut.Range[0] <= 0 {
+		return fmt.Errorf("cut: first argument must be greater than 0")
 	}
-	if u, err := url.Parse(fmt.Sprintf(*fmtstrp, 1)); err != nil {
-		return fmt.Errorf("format: format string does not produce a valid url: %w", err)
-	} else if !u.IsAbs() {
-		return fmt.Errorf("format: url is not absolute")
+	if *startpagep != "" {
+		if u, err := url.Parse(*startpagep); err != nil {
+			return fmt.Errorf("startpage: %v", err)
+		} else {
+			r.startpage = u
+		}
+	}
+	if *digitsp > 0 && *digitsp < len(strconv.Itoa(*endp)) {
+		return fmt.Errorf("digits: not enough space to hold the desired page numbers")
 	}
 	//set pager vars
 	r.adjust = *adjp
-	r.page, r.end, r.step, r.fmtstr, r.usestartpage = *startp, *endp, *stepp, *fmtstrp, bool(*startpagep)
+	r.page, r.end, r.step = *startp, *endp, *stepp
+	r.cut = cut.Range
+	if *digitsp > 0 {
+		r.digitfmt = fmt.Sprintf("%%0%dd", *digitsp)
+	} else {
+		r.digitfmt = "%d"
+	}
 	return nil
 }
 
-func (r *URLFormatPager) SetUrl(addr string) error {
-	u, err := url_for_pager(addr)
-	if err != nil {
+func (r *URLCuttingPager) SetUrl(addr string) error {
+	//test if url is valid
+	if _, err := url_for_pager(addr); err != nil {
 		return err
 	}
-	r.startpage = u
+	//split address in a left and a right part
+	if len(addr) <= r.cut[0]-1 {
+		return fmt.Errorf("URL is too short for the given cutoff index")
+	}
+	r.leftpart = addr[:r.cut[0]-1]
+	if len(addr) > r.cut[1] {
+		r.rightpart = addr[r.cut[1]:]
+	}
 	return nil
 }
 
