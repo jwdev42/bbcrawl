@@ -6,6 +6,7 @@ package cmdline
 import (
 	"bytes"
 	"fmt"
+	"github.com/jwdev42/bbcrawl/cmdline/attrs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -204,17 +205,24 @@ func (v *FSDirectory) String() string {
 type Attrs map[string][]string
 
 const (
-	attrs_token_pair_separator      = '/'
+	attrs_token_pair_separator      = rune('/')
+	attrs_token_escape_character    = rune('\\')
 	attrs_token_key_value_separator = '='
 	attrs_token_value_separator     = ','
 )
 
 func (v Attrs) Set(s string) error {
-	pairs := strings.Split(s, string(attrs_token_pair_separator))
+	tok := attrs.NewTokenizer(attrs_token_pair_separator, attrs_token_escape_character)
+	ts, err := tok.Tokenize(s)
+	if err != nil {
+		return err
+	}
+	parser := attrs.NewParser(ts)
+	pairs := parser.Parse()
 	for _, pair := range pairs {
 		kv := strings.SplitN(pair, string(attrs_token_key_value_separator), 2)
 		if len(kv) != 2 {
-			return fmt.Errorf("Substring %q: Too many equal signs", pair)
+			return fmt.Errorf("Substring %q: Less or more than one equal sign", pair)
 		}
 		key := kv[0]
 		vals := strings.Split(kv[1], string(attrs_token_value_separator))
@@ -243,7 +251,7 @@ func (v Attrs) String() string {
 			}
 		}
 		if element < elements {
-			builder.WriteByte(attrs_token_pair_separator)
+			builder.WriteRune(attrs_token_pair_separator)
 		}
 		element++
 	}
