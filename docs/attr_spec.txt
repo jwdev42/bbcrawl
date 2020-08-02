@@ -1,0 +1,6 @@
+Attributes = Attribute, { "/", Attribute };
+Attribute = Key, "=", Value;
+Value = EscapedText, { ",", EscapedText };
+EscapedText = ( Text | EscapeSequence ), { EscapedText };
+EscapeSequence = "\\" | "\/";
+Text = ? unicode code points except "\" and "/" and "," and "=" ?;
