@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"github.com/jwdev42/bbcrawl/cmdline"
 	"github.com/jwdev42/bbcrawl/libcrawl/download"
+	"github.com/jwdev42/bbcrawl/libhtml"
 	"github.com/jwdev42/logger"
 	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 	"golang.org/x/net/publicsuffix"
 	"net/http"
 	"net/http/cookiejar"
@@ -23,7 +23,7 @@ import (
 
 const (
 	CRAWLER_VB_ATTACHMENTS = "vb-attachments"
-	CRAWLER_IMAGE          = "img"
+	CRAWLER_SRC            = "src"
 	CRAWLER_FILE           = "file"
 )
 
@@ -209,117 +209,6 @@ func (r *FileCrawler) Crawl(u *url.URL) error {
 	return nil
 }
 
-type ImageCrawler struct {
-	*baseCrawler
-	attrs []html.Attribute
-}
-
-func NewImageCrawler(cc *CrawlContext) (CrawlerInterface, error) {
-	crawler := &ImageCrawler{
-		baseCrawler: newBaseCrawler(cc),
-	}
-	return crawler, nil
-}
-
-func (r *ImageCrawler) Crawl(u *url.URL) error {
-	const imgtag string = "img"
-	picid := 1
-	page := r.cc.Pager.PageNum()
-	resp, err := r.getPage(u)
-	if err != nil {
-		return err
-	}
-	body, err := html.Parse(resp.Body)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	var nodes []*html.Node
-	if len(r.attrs) == 0 {
-		nodes = elementsByTag(body, atom.Img)
-	} else {
-		nodes = elementsByTagAndAttrs(body, imgtag, r.attrs)
-	}
-
-	for _, n := range nodes {
-		for _, a := range n.Attr {
-			if a.Key == "src" {
-
-				//determine filename
-				li := strings.LastIndex(a.Val, ".")
-				var suffix string
-				if li+1 < len(a.Val) {
-					suffix = a.Val[li+1:]
-				} else {
-					log.Println(logger.Level_Error, fmt.Errorf("Download error (no image suffix): %s", a.Val))
-					break
-				}
-				filename := fmt.Sprintf("%d-%d.%s", page, picid, suffix)
-
-				//setup Download struct
-				dl := &download.Download{
-					Client: r.client,
-				}
-				//set directory
-				if err := dl.SetDir(r.cc.output); err != nil {
-					log.Error(err)
-					break
-				}
-				//set file
-				dl.SetFile(filename)
-				//set download address
-				if dl.Addr, err = u.Parse(a.Val); err != nil {
-					log.Error(fmt.Errorf("Download error: %w", err))
-					break
-				}
-				if !dl.Addr.IsAbs() {
-					dl.Addr, err = rel2absURL(u, dl.Addr)
-					if err != nil {
-						log.Error(fmt.Errorf("Download error: %w", err))
-						break
-					}
-				}
-				if r.isExcluded(dl.Addr) {
-					log.Debug(fmt.Errorf("Skipping download (on exclusion list): %s", dl.Addr.String()))
-					break
-				}
-				r.dispatcher.Dispatch(dl)
-				picid++
-				break
-			}
-		}
-	}
-	return nil
-}
-
-func (r *ImageCrawler) SetOptions(args []string) error {
-	set := flag.NewFlagSet("ImageCrawler", flag.ContinueOnError)
-	common := addCommonCrawlerFlags(set)
-	cmd_attrs := make(cmdline.Attrs)
-	set.Var(cmd_attrs, "attrs", "Download only images that match the declared node attributes")
-	if err := set.Parse(args); err != nil {
-		return err
-	}
-	r.excluded = common.excludedURLs.URLs
-	if *common.allowRedirect {
-		r.redirect = logRedirect
-	} else {
-		r.redirect = noRedirect
-	}
-	r.debug = bool(*common.debugMode)
-	r.attrs = cmdAttrs2htmlAttrs(cmd_attrs)
-	return nil
-}
-
-func (r *ImageCrawler) isExcluded(url *url.URL) bool {
-	for _, exurl := range r.excluded {
-		if exurl.String() == url.String() {
-			return true
-		}
-	}
-	return false
-}
-
 type VBAttachmentCrawler struct {
 	*baseCrawler
 	headernames bool
@@ -412,17 +301,17 @@ func (r *VBAttachmentCrawler) Crawl(u *url.URL) error {
 
 func (r *VBAttachmentCrawler) vb4PostList(node *html.Node) []*vbpost {
 	const searchForID string = "posts"
-	posts := elementByID(node, searchForID)
+	posts := libhtml.ElementByID(node, searchForID)
 	if posts == nil {
 		return nil
 	}
-	nc := elementsByAttrMatch(posts, "id", vb4_regex_postid)
-	if len(nc.nodes) == 0 {
+	nodes := libhtml.ElementsByAttrMatch(posts, "id", vb4_regex_postid)
+	if len(nodes) == 0 {
 		return nil
 	}
-	vbposts := make([]*vbpost, len(nc.nodes))
-	for i := range nc.nodes {
-		vbposts[i] = (*vbpost)(nc.nodes[i])
+	vbposts := make([]*vbpost, len(nodes))
+	for i := range nodes {
+		vbposts[i] = (*vbpost)(nodes[i])
 		if log.Level() == logger.Level_Debug {
 			log.Debug(fmt.Sprintf("VBAttachmentCrawler: found post %q", vbposts[i].id()))
 		}
@@ -441,13 +330,13 @@ func (r *vbpost) id() string {
 }
 
 func (r *vbpost) attachments() []*vbattachment {
-	nc := elementsByAttrMatch((*html.Node)(r), "id", vb4_regex_attachmentid)
-	vb4att := make([]*vbattachment, len(nc.nodes))
-	for i := range nc.nodes {
-		vb4att[i] = (*vbattachment)(nc.nodes[i])
+	nodes := libhtml.ElementsByAttrMatch((*html.Node)(r), "id", vb4_regex_attachmentid)
+	vb4att := make([]*vbattachment, len(nodes))
+	for i := range nodes {
+		vb4att[i] = (*vbattachment)(nodes[i])
 		if log.Level() == logger.Level_Debug {
 			var id string
-			for _, attr := range nc.nodes[i].Attr {
+			for _, attr := range nodes[i].Attr {
 				if attr.Key == "id" {
 					id = attr.Val
 					break

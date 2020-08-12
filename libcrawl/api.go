@@ -27,7 +27,7 @@ var pagers = map[string]func(*CrawlContext) PagerInterface{
 
 var crawlers = map[string]func(*CrawlContext) (CrawlerInterface, error){
 	CRAWLER_VB_ATTACHMENTS: NewVBAttachmentCrawler,
-	CRAWLER_IMAGE:          NewImageCrawler,
+	CRAWLER_SRC:            NewSrcCrawler,
 	CRAWLER_FILE:           NewFileCrawler,
 }
 

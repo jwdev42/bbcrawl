@@ -257,3 +257,42 @@ func (v Attrs) String() string {
 	}
 	return builder.String()
 }
+
+type StringWhitelist struct {
+	delim     string
+	elems     []string
+	whitelist []string
+}
+
+func NewStringWhitelist(delim string, whitelisted ...string) *StringWhitelist {
+	return &StringWhitelist{delim: delim, whitelist: whitelisted, elems: make([]string, 0, 5)}
+}
+
+func (v *StringWhitelist) Result() []string {
+	return v.elems
+}
+
+func (v *StringWhitelist) Set(s string) error {
+	splitted := strings.Split(s, v.delim)
+	for _, name := range splitted {
+		found := false
+		for _, a := range v.whitelist {
+			if name == a {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("String \"%s\" is not whitelisted", name)
+		}
+	}
+	v.elems = splitted
+	return nil
+}
+
+func (v *StringWhitelist) String() string {
+	if v == nil || v.elems == nil {
+		return ""
+	}
+	return strings.Join(v.elems, v.delim)
+}

@@ -1,7 +1,4 @@
-/* This file is part of bbcrawl, ©2020 Jörg Walter
- *  This software is licensed under the "GNU General Public License version 3" */
-
-package libcrawl
+package libhtml
 
 import (
 	"golang.org/x/net/html"
@@ -46,7 +43,16 @@ func matchAttrVal(nc *nodecollection, key string, val *regexp.Regexp) func(n *ht
 
 //END: Functions to be used as pre or post with walktree*
 
-func elementByID(n *html.Node, id string) *html.Node {
+func AttrVal(node *html.Node, attribute string) string {
+	for _, attr := range node.Attr {
+		if attr.Key == attribute {
+			return attr.Val
+		}
+	}
+	return ""
+}
+
+func ElementByID(n *html.Node, id string) *html.Node {
 	var elem *html.Node
 	byID := func(n *html.Node) bool {
 		for _, a := range n.Attr {
@@ -61,17 +67,20 @@ func elementByID(n *html.Node, id string) *html.Node {
 	return elem
 }
 
-func elementsByAttrMatch(n *html.Node, key string, val *regexp.Regexp) *nodecollection {
+func ElementsByAttrMatch(n *html.Node, key string, val *regexp.Regexp) []*html.Node {
 	nc := &nodecollection{nodes: make([]*html.Node, 0, 25)}
 	walkTree(n, matchAttrVal(nc, key, val), nil)
-	return nc
+	return nc.nodes
 }
 
-func elementsByTag(n *html.Node, tag atom.Atom) []*html.Node {
+func ElementsByTag(n *html.Node, tag ...atom.Atom) []*html.Node {
 	nodes := make([]*html.Node, 0, 10)
 	pre := func(n *html.Node) bool {
-		if n.DataAtom == tag {
-			nodes = append(nodes, n)
+		for _, t := range tag {
+			if n.DataAtom == t {
+				nodes = append(nodes, n)
+				break
+			}
 		}
 		return true
 	}
@@ -79,7 +88,7 @@ func elementsByTag(n *html.Node, tag atom.Atom) []*html.Node {
 	return nodes
 }
 
-func elementsByTagAndAttrs(n *html.Node, id string, attrs []html.Attribute) []*html.Node {
+func ElementsByTagAndAttrs(n *html.Node, id string, attrs []html.Attribute) []*html.Node {
 	nodes := make([]*html.Node, 0, 10)
 	pre := func(n *html.Node) bool {
 		if n.Type == html.ElementNode && n.Data == id {
@@ -101,4 +110,13 @@ func elementsByTagAndAttrs(n *html.Node, id string, attrs []html.Attribute) []*h
 	}
 	walkTree(n, pre, nil)
 	return nodes
+}
+
+func HasAttr(node *html.Node, attribute string) bool {
+	for _, attr := range node.Attr {
+		if attr.Key == attribute {
+			return true
+		}
+	}
+	return false
 }

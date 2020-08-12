@@ -90,7 +90,7 @@ func (dl *Download) checkFilename(name string) {
 		panic("Filename cannot be empty")
 	}
 	if strings.IndexByte(name, os.PathSeparator) >= 0 {
-		panic(fmt.Errorf("Filename %q is not allowed to contain the directory separator \"%c\"", name, os.PathSeparator))
+		panic(fmt.Errorf("Filename \"%s\" is not allowed to contain the directory separator \"%c\"", name, os.PathSeparator))
 	}
 }
 
