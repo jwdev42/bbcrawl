@@ -85,16 +85,20 @@ These options work on every crawler
 ### file
 file is a crawler that treats every received page as a file for download.
 
-### img
-img selects all img tags from every page for download.
+### src
+src downloads sources from audio, img and video tags.
 
-#### options for img
+#### options for src
 > **-attrs** *ATTRIBUTES*  
 > attrs filters img tags for the given html attributes. For the specification, see [attr_spec.txt](attr_spec.txt).
 >> Example:
 
 >> *-attrs width=500/alt=lorem ipsum*  
 >> This will only download images that have a width attribute with value 500 an an alt attribute with value "lorem ipsum"
+
+> **-tags** *TAG\{,TAG\}*  
+> tags defines the tags the crawler will download sources from. Tags are supplied as a comma-separated list,
+> valid tags are "audio", "img", "video".
 
 ### vb-attachments
 vb-attachments downloads every vbulletin attachment found on a page. It currently supports vbulletin versions 3 and 4.
@@ -111,9 +115,11 @@ This will download all images of thread1293 from page 3 to 15 to the directory /
 
 ## issues
 
+- passwords provided in URLs like https://user:pass@example.net may leak to the logger as there is no filter implemented yet.
+
 bbcrawl is in an early state so expect bugs and changes.
-The "img" crawler will likely be changed into a more useful "tag" crawler in the future.
 This software is developed and tested under Linux, platform specific bugs may occur on other platforms.
 You are welcome to report any bugs on plattforms that are supported by go.
 
+bbcrawl is provided \*as is\* without any warranty.
 © 2020 Jörg Walter
