@@ -12,6 +12,8 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -45,11 +47,13 @@ func (r *SrcCrawler) Crawl(u *url.URL) error {
 	for _, n := range nodes {
 		switch n.DataAtom {
 		case atom.Audio:
-			if r.hasAtom(n.DataAtom) {
-
+			if r.hasAtom(n.DataAtom) && libhtml.MatchAttrs(n, r.attrs...) {
+				if err := r.scrapeAV(u, n); err != nil {
+					log.Error(fmt.Errorf("Download error: %v", err))
+				}
 			}
 		case atom.Img:
-			if r.hasAtom(n.DataAtom) {
+			if r.hasAtom(n.DataAtom) && libhtml.MatchAttrs(n, r.attrs...) {
 				link := libhtml.AttrVal(n, attr_src)
 				if len(link) > 0 {
 					name, err := r.uniqueName(link)
@@ -63,8 +67,10 @@ func (r *SrcCrawler) Crawl(u *url.URL) error {
 				}
 			}
 		case atom.Video:
-			if r.hasAtom(n.DataAtom) {
-
+			if r.hasAtom(n.DataAtom) && libhtml.MatchAttrs(n, r.attrs...) {
+				if err := r.scrapeAV(u, n); err != nil {
+					log.Error(fmt.Errorf("Download error: %v", err))
+				}
 			}
 		default:
 			panic("You're not supposed to be here!")
@@ -91,6 +97,9 @@ func (r *SrcCrawler) SetOptions(args []string) error {
 	}
 	r.debug = bool(*common.debugMode)
 	r.attrs = cmdAttrs2htmlAttrs(cmdattrs)
+	if len(taglist.Result()) == 0 {
+		return fmt.Errorf("No html tag specified with \"-tags\"")
+	}
 	r.atoms = r.tags2atoms(taglist.Result())
 	return nil
 }
@@ -149,14 +158,20 @@ func (r *SrcCrawler) scrapeAV(page *url.URL, node *html.Node) error {
 			log.Error(fmt.Errorf("Download error: %v", err))
 		}
 	default:
-		//TODO: Implement mechanism to group subcomponents of video/audio element
+		dir := filepath.Join(r.cc.output, fmt.Sprintf("%d-%d", r.cc.Pager.PageNum(), r.fileid))
+		r.fileid++
+		if err := os.Mkdir(dir, 0755); err != nil {
+			return err
+		}
+
+		sources := make(avTag)
 		for _, link := range downloads {
-			name, err := r.uniqueName(link)
-			if err != nil {
+			if err := sources.addSrc(link); err != nil {
 				log.Error(fmt.Errorf("Download error: %v", err))
-				break
 			}
-			if err := r.download(page, link, r.cc.output, name); err != nil {
+		}
+		for link, name := range sources {
+			if err := r.download(page, link, dir, name); err != nil {
 				log.Error(fmt.Errorf("Download error: %v", err))
 			}
 		}

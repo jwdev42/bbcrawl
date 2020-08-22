@@ -120,3 +120,23 @@ func HasAttr(node *html.Node, attribute string) bool {
 	}
 	return false
 }
+
+func MatchAttrs(node *html.Node, attr ...html.Attribute) bool {
+	attrs_to_match := make(map[html.Attribute]bool)
+	for _, a := range attr {
+		attrs_to_match[a] = false
+	}
+
+	for _, a := range node.Attr {
+		if _, ok := attrs_to_match[a]; ok {
+			attrs_to_match[a] = true
+		}
+	}
+
+	for _, v := range attrs_to_match {
+		if !v {
+			return false
+		}
+	}
+	return true
+}

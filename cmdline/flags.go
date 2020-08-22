@@ -283,7 +283,7 @@ func (v *StringWhitelist) Set(s string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("String \"%s\" is not whitelisted", name)
+			return fmt.Errorf("String \"%s\" not in whitelist. Valid values are %s", name, strings.Join(v.whitelist, ", "))
 		}
 	}
 	v.elems = splitted
