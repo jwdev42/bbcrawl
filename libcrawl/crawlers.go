@@ -9,6 +9,7 @@ import (
 	"github.com/jwdev42/bbcrawl/cmdline"
 	"github.com/jwdev42/bbcrawl/libcrawl/download"
 	"github.com/jwdev42/bbcrawl/libhtml"
+	"github.com/jwdev42/bbcrawl/libhttp/redirect"
 	"github.com/jwdev42/logger"
 	"golang.org/x/net/html"
 	"golang.org/x/net/publicsuffix"
@@ -46,7 +47,7 @@ func newBaseCrawler(cc *CrawlContext) *baseCrawler {
 	return &baseCrawler{
 		cc: cc, client: new(http.Client),
 		excluded: make([]*url.URL, 0, 1),
-		redirect: logRedirect,
+		redirect: redirect.Log,
 	}
 }
 
@@ -154,9 +155,9 @@ func (c *baseCrawler) SetOptions(args []string) error {
 	}
 	c.excluded = common.excludedURLs.URLs
 	if *common.allowRedirect {
-		c.redirect = logRedirect
+		c.redirect = redirect.Log
 	} else {
-		c.redirect = noRedirect
+		c.redirect = redirect.Deny
 	}
 	c.debug = bool(*common.debugMode)
 	return nil
@@ -233,9 +234,9 @@ func (r *VBAttachmentCrawler) SetOptions(args []string) error {
 	}
 	r.excluded = common.excludedURLs.URLs
 	if *common.allowRedirect {
-		r.redirect = logRedirect
+		r.redirect = redirect.Log
 	} else {
-		r.redirect = noRedirect
+		r.redirect = redirect.Deny
 	}
 	r.debug = bool(*common.debugMode)
 	r.headernames = bool(*headernames)
@@ -390,4 +391,9 @@ func cmdAttrs2htmlAttrs(attrs_cmd cmdline.Attrs) []html.Attribute {
 		}
 	}
 	return attrs_html
+}
+
+func printFetchError(url *url.URL) {
+	//BUG(jw): Password needs to be filtered out of the url before printing it.
+	log.Error(fmt.Sprintf("File %q could not be downloaded.", url.String()))
 }

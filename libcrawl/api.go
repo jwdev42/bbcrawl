@@ -15,7 +15,6 @@ import (
 )
 
 const DEFAULT_DL_JOBS = 5
-const DEFAULT_REDIRECTS = 10
 
 var log = global.GetLogger()
 

@@ -9,6 +9,7 @@ import (
 	"github.com/jwdev42/bbcrawl/cmdline"
 	"github.com/jwdev42/bbcrawl/libcrawl/download"
 	"github.com/jwdev42/bbcrawl/libhtml"
+	"github.com/jwdev42/bbcrawl/libhttp/redirect"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"net/url"
@@ -91,9 +92,9 @@ func (r *SrcCrawler) SetOptions(args []string) error {
 	}
 	r.excluded = common.excludedURLs.URLs
 	if *common.allowRedirect {
-		r.redirect = logRedirect
+		r.redirect = redirect.Log
 	} else {
-		r.redirect = noRedirect
+		r.redirect = redirect.Deny
 	}
 	r.debug = bool(*common.debugMode)
 	r.attrs = cmdAttrs2htmlAttrs(cmdattrs)
