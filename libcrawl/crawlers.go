@@ -280,6 +280,11 @@ func (r *VBAttachmentCrawler) Crawl(u *url.URL) error {
 			}
 			dl := &download.Download{Client: r.client, Addr: attUrl}
 
+			//set download directory
+			if err := dl.SetDir(r.cc.output); err != nil {
+				log.Error(err)
+				continue
+			}
 			//determine download filename
 			postid := post.id()
 			if r.headernames {
@@ -291,11 +296,6 @@ func (r *VBAttachmentCrawler) Crawl(u *url.URL) error {
 					continue
 				}
 				dl.SetFile(fmt.Sprintf("%s - %s", postid, name))
-			}
-			//set download directory
-			if err := dl.SetDir(r.cc.output); err != nil {
-				log.Error(err)
-				continue
 			}
 
 			//run download
