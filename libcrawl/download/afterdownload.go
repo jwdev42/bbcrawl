@@ -33,7 +33,7 @@ func ADNameFromHeader(prefix string) func(*Download) {
 			return
 		}
 		if len(prefix) > 0 {
-			newname = fmt.Sprintf("%s - %s", prefix, name)
+			newname = fmt.Sprintf("%s-%s", prefix, name)
 		} else {
 			newname = name
 		}

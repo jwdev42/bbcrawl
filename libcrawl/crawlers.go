@@ -265,16 +265,21 @@ func (r *VBAttachmentCrawler) Crawl(u *url.URL) error {
 	}
 	for _, post := range posts {
 		atts := post.attachments()
+		attid := 1
+		on_failure := func(u *url.URL) {
+			printFetchError(u)
+			attid++
+		}
 		for _, att := range atts {
 			attUrl, err := att.href()
 			if err != nil {
-				printFetchError(attUrl)
+				on_failure(attUrl)
 				continue
 			}
 			if !attUrl.IsAbs() {
 				attUrl, err = rel2absURL(u, attUrl)
 				if err != nil {
-					printFetchError(attUrl)
+					on_failure(attUrl)
 					continue
 				}
 			}
@@ -282,24 +287,25 @@ func (r *VBAttachmentCrawler) Crawl(u *url.URL) error {
 
 			//set download directory
 			if err := dl.SetDir(r.cc.output); err != nil {
-				log.Error(err)
+				on_failure(attUrl)
 				continue
 			}
 			//determine download filename
 			postid := post.id()
 			if r.headernames {
-				dl.AfterDownload = download.ADNameFromHeader(postid)
+				dl.AfterDownload = download.ADNameFromHeader(fmt.Sprintf("%s-%d", postid, attid))
 			} else {
 				name := fileNameFromURL(attUrl)
 				if name == "" {
-					printFetchError(attUrl)
+					on_failure(attUrl)
 					continue
 				}
-				dl.SetFile(fmt.Sprintf("%s - %s", postid, name))
+				dl.SetFile(fmt.Sprintf("%s-%d-%s", postid, attid, name))
 			}
 
 			//run download
 			r.dispatcher.Dispatch(dl)
+			attid++
 		}
 	}
 	return nil
