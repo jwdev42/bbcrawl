@@ -9,6 +9,7 @@ import (
 	"github.com/jwdev42/bbcrawl/cmdline"
 	"github.com/jwdev42/bbcrawl/libcrawl/download"
 	"github.com/jwdev42/bbcrawl/libhtml"
+	"github.com/jwdev42/bbcrawl/libhttp"
 	"github.com/jwdev42/bbcrawl/libhttp/redirect"
 	"github.com/jwdev42/logger"
 	"golang.org/x/net/html"
@@ -250,11 +251,15 @@ func (r *VBAttachmentCrawler) Crawl(u *url.URL) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, err := html.Parse(resp.Body)
+	body, err := libhttp.BodyUTF8(resp)
 	if err != nil {
 		return err
 	}
-	posts := r.vb4PostList(body)
+	document, err := html.Parse(body)
+	if err != nil {
+		return err
+	}
+	posts := r.vb4PostList(document)
 	if posts == nil {
 		log.Error(fmt.Sprintf("No posts found at page %q", u.String()))
 	}

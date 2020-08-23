@@ -9,6 +9,7 @@ import (
 	"github.com/jwdev42/bbcrawl/cmdline"
 	"github.com/jwdev42/bbcrawl/libcrawl/download"
 	"github.com/jwdev42/bbcrawl/libhtml"
+	"github.com/jwdev42/bbcrawl/libhttp"
 	"github.com/jwdev42/bbcrawl/libhttp/redirect"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -39,12 +40,16 @@ func (r *SrcCrawler) Crawl(u *url.URL) error {
 	if err != nil {
 		return err
 	}
-	body, err := html.Parse(resp.Body)
+	body, err := libhttp.BodyUTF8(resp)
+	if err != nil {
+		return err
+	}
+	document, err := html.Parse(body)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	nodes := libhtml.ElementsByTag(body, r.atoms...)
+	nodes := libhtml.ElementsByTag(document, r.atoms...)
 	for _, n := range nodes {
 		switch n.DataAtom {
 		case atom.Audio:
