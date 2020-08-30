@@ -91,21 +91,29 @@ func TestIntRange(t *testing.T) {
 	if ir.String() != "0,0" {
 		t.Errorf("%s: Expected \"0,0\", got %q", t.Name(), ir.String())
 	}
-	if err := ir.Set("3,3"); err != nil {
-		t.Error(err)
+	shouldWork := func(first, second int, positive bool) {
+		input := fmt.Sprintf("%d,%d", first, second)
+		if positive {
+			if err := ir.Set(input); err != nil {
+				t.Errorf("input \"%s\": %v", input, err)
+				return
+			}
+		} else {
+			if err := ir.Set(input); err == nil {
+				t.Errorf("input \"%s\" should have caused an error", input)
+				return
+			}
+		}
+		if ir.String() != input {
+			t.Errorf("%s: Expected \"%s\", got %q", t.Name(), input, ir.String())
+		}
 	}
-	if ir.String() != "3,3" {
-		t.Errorf("%s: Expected \"3,3\", got %q", t.Name(), ir.String())
-	}
-	if err := ir.Set("4,3"); err == nil {
-		t.Errorf("%s: Expected an error", t.Name())
-	}
-	if err := ir.Set("23, 42"); err != nil {
-		t.Error(err)
-	}
-	if ir.String() != "23,42" {
-		t.Errorf("%s: Expected \"23,42\", got %q", t.Name(), ir.String())
-	}
+	//legal combinations
+	shouldWork(3, 3, true)
+	shouldWork(23, 42, true)
+	shouldWork(-1, 2, true)
+	//illegal combinations
+	shouldWork(4, 3, false)
 }
 
 func TestFSDirectory(t *testing.T) {
