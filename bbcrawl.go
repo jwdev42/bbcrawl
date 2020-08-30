@@ -19,22 +19,9 @@ func eexit(err error) {
 	os.Exit(2)
 }
 
-func parseCmdline() (*cmdline.Product, error) {
-	l := &cmdline.Lexer{}
-	if err := l.Analyze(os.Args[1:]); err != nil {
-		return nil, err
-	}
-	p := cmdline.NewParser(l)
-	res, err := p.Parse()
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 func main() {
 	log.SetTimeFormat(time.RFC1123)
-	cmd, err := parseCmdline()
+	cmd, err := cmdline.Partition(os.Args)
 	if err != nil {
 		eexit(fmt.Errorf("Command line: %w", err))
 	}
