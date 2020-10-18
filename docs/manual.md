@@ -43,7 +43,7 @@ by the page number.
 > cut cuts out a part of the blueprint url, this part will be replaced with a page number
 > everytime the crawler requests a new page.
 > The first argument is the index of the first character to be cut out,
-> the second argument is the index of the last character to be cut out.
+> the second argument is the amount of characters to be cut out.
 > The index starts with 1.
 
 > **-digits** *INT*  

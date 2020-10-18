@@ -170,6 +170,30 @@ func (v *IntRange) String() string {
 	return fmt.Sprintf("%d,%d", v.Range[0], v.Range[1])
 }
 
+type IntTuple struct {
+	Numbers []int
+}
+
+func (v *IntTuple) Set(s string) error {
+	splitted := strings.Split(s, ",")
+	v.Numbers = make([]int, 0, len(splitted))
+	for _, str := range splitted {
+		n, err := strconv.Atoi(strings.TrimSpace(str))
+		if err != nil {
+			return err
+		}
+		v.Numbers = append(v.Numbers, n)
+	}
+	return nil
+}
+
+func (v *IntTuple) String() string {
+	if v.Numbers == nil {
+		return ""
+	}
+	return fmt.Sprintf("%v", v.Numbers)
+}
+
 type FSDirectory struct {
 	Path string
 }

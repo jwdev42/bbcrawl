@@ -47,11 +47,15 @@ func genericURLCuttingPagertest(t *testing.T, addr, addrfmt, cmdline string) {
 }
 
 func TestURLCuttingPager(t *testing.T) {
-	genericURLCuttingPagertest(t, "http://www.example.net/1/test", "http://www.example.net/%d/test", "-start 1 -end 100 -cut 24,24")
-	genericURLCuttingPagertest(t, "http://www.example.net/1/test", "http://www.example.net/%05d/test", "-start 1 -end 100 -cut 24,24 -digits 5")
-	genericURLCuttingPagertest(t, "http://www.example.net/1", "http://www.example.net/%d", "-start 1 -end 100 -cut 24,24")
-	genericURLCuttingPagertest(t, "http://www.example.net/1", "http://www.example.net/%05d", "-start 1 -end 100 -cut 24,24 -digits 5")
-	genericURLCuttingPagertest(t, "http://www.example.net/1", "http://www.example.net/%d", "-start 1 -end 100 -cut 24,25")
-	genericURLCuttingPagertest(t, "http://www.example.net/1/", "http://www.example.net/%d/", "-start 1 -end 100 -cut 24,24")
-	genericURLCuttingPagertest(t, "http://www.example.net/1/", "http://www.example.net/%d/", "-startpage http://www.example.net -start 1 -end 100 -cut 24,24")
+	genericURLCuttingPagertest(t, "http://www.example.net/1/test", "http://www.example.net/%d/test", "-start 1 -end 100 -cut 24,1")
+	genericURLCuttingPagertest(t, "http://www.example.net/1/test", "http://www.example.net/%d/test", "-start 1 -end 100 -cut -6,1")
+	genericURLCuttingPagertest(t, "http://www.example.net/666/test", "http://www.example.net/%d/test", "-start 1 -end 100 -cut 24,3")
+	genericURLCuttingPagertest(t, "http://www.example.net/666/test", "http://www.example.net/%d/test", "-start 1 -end 100 -cut -8,3")
+	genericURLCuttingPagertest(t, "http://www.example.net/1/test", "http://www.example.net/%05d/test", "-start 1 -end 100 -cut 24,1 -digits 5")
+	genericURLCuttingPagertest(t, "http://www.example.net/1", "http://www.example.net/%d", "-start 1 -end 100 -cut 24,1")
+	genericURLCuttingPagertest(t, "http://www.example.net/1", "http://www.example.net/%d", "-start 1 -end 100 -cut -1,1")
+	genericURLCuttingPagertest(t, "http://www.example.net/page/", "http://www.example.net/page%d/", "-start 1 -end 100 -cut 28,0")
+	genericURLCuttingPagertest(t, "http://www.example.net/1", "http://www.example.net/%05d", "-start 1 -end 100 -cut 24,1 -digits 5")
+	genericURLCuttingPagertest(t, "http://www.example.net/1/", "http://www.example.net/%d/", "-start 1 -end 100 -cut 24,1")
+	genericURLCuttingPagertest(t, "http://www.example.net/1/", "http://www.example.net/%d/", "-startpage http://www.example.net -start 1 -end 100 -cut 24,1")
 }

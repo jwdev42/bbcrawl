@@ -103,7 +103,7 @@ func (r *QueryPager) SetUrl(addr string) error {
 //URLCuttingPager browses through the pages by cutting out a part of itself and replacing that with an increasing number.
 type URLCuttingPager struct {
 	end, page, step, adjust       int
-	cut                           [2]int
+	cut                           []int
 	startpage                     *url.URL
 	leftpart, rightpart, digitfmt string
 }
@@ -135,7 +135,7 @@ func (r *URLCuttingPager) PageNum() int {
 }
 
 func (r *URLCuttingPager) SetOptions(args []string) error {
-	var cut = new(cmdline.IntRange)
+	var cut = new(cmdline.IntTuple)
 	//setup
 	set := flag.NewFlagSet("URLCuttingPager", flag.ContinueOnError)
 	adjp := set.Int("adjust", 0, "adjust the page reported to the crawler")
@@ -157,8 +157,14 @@ func (r *URLCuttingPager) SetOptions(args []string) error {
 	if *stepp < 1 {
 		return fmt.Errorf("step set to an illegal value")
 	}
-	if cut.Range[0] <= 0 {
-		return fmt.Errorf("cut: first argument must be greater than 0")
+	if cut.Numbers[0] == 0 {
+		return fmt.Errorf("cut: first argument cannot be 0")
+	}
+	if len(cut.Numbers) != 2 {
+		return fmt.Errorf("cut needs 2 integers")
+	}
+	if cut.Numbers[1] < 0 {
+		return fmt.Errorf("cut: cannot cut out a negative amount of characters")
 	}
 	if *startpagep != "" {
 		if u, err := url.Parse(*startpagep); err != nil {
@@ -173,7 +179,7 @@ func (r *URLCuttingPager) SetOptions(args []string) error {
 	//set pager vars
 	r.adjust = *adjp
 	r.page, r.end, r.step = *startp, *endp, *stepp
-	r.cut = cut.Range
+	r.cut = cut.Numbers
 	if *digitsp > 0 {
 		r.digitfmt = fmt.Sprintf("%%0%dd", *digitsp)
 	} else {
@@ -187,13 +193,17 @@ func (r *URLCuttingPager) SetUrl(addr string) error {
 	if _, err := url_for_pager(addr); err != nil {
 		return err
 	}
-	//split address in a left and a right part
-	if len(addr) <= r.cut[0]-1 {
-		return fmt.Errorf("URL is too short for the given cutoff index")
+	cutindex := r.cut[0]
+	if cutindex < 0 {
+		cutindex = len(addr) + cutindex + 1
 	}
-	r.leftpart = addr[:r.cut[0]-1]
-	if len(addr) > r.cut[1] {
-		r.rightpart = addr[r.cut[1]:]
+	//split address in a left and a right part
+	if len(addr) <= cutindex-1 || cutindex < 1 {
+		return fmt.Errorf("cutoff index out of range")
+	}
+	r.leftpart = addr[:cutindex-1]
+	if len(addr) > cutindex-1+r.cut[1] {
+		r.rightpart = addr[cutindex-1+r.cut[1]:]
 	}
 	return nil
 }
