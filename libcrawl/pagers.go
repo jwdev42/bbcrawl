@@ -100,7 +100,7 @@ func (r *QueryPager) SetUrl(addr string) error {
 	return nil
 }
 
-//URLCuttingPager browses through the pages by cutting out a part of itself and replacing that with an increasing number.
+// URLCuttingPager browses through the pages by cutting out a part of itself and replacing that with an increasing number.
 type URLCuttingPager struct {
 	end, page, step, adjust       int
 	cut                           []int

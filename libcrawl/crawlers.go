@@ -81,10 +81,10 @@ func (c *baseCrawler) debug_DumpHeader(dir, name string, header http.Header) {
 	}
 }
 
-//getPage receives an http response by issuing a "GET" request on url "page". This function has 3 side effects.
-//At first the http client's CheckRedirect function is set to baseCrawler's "redirect" member. Secondly a new cookie jar
-//is deployed to the http client if there isn't already one. Thirdly the cookie jar is filled with the CrawlContext's cookie slice,
-//but only if the cookie jar did not exist before (i.e. on the first call).
+// getPage receives an http response by issuing a "GET" request on url "page". This function has 3 side effects.
+// At first the http client's CheckRedirect function is set to baseCrawler's "redirect" member. Secondly a new cookie jar
+// is deployed to the http client if there isn't already one. Thirdly the cookie jar is filled with the CrawlContext's cookie slice,
+// but only if the cookie jar did not exist before (i.e. on the first call).
 func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
 	c.client.CheckRedirect = c.redirect
 	req, err := http.NewRequest("GET", page.String(), nil)
@@ -123,7 +123,7 @@ func (c *baseCrawler) getPage(page *url.URL) (*http.Response, error) {
 	return resp, err
 }
 
-//redirection sets the optional redirection handler function for the crawler's http.Client
+// redirection sets the optional redirection handler function for the crawler's http.Client
 func (c *baseCrawler) redirection(redirect func(*http.Request, []*http.Request) error) {
 	c.client.CheckRedirect = redirect
 }
@@ -168,9 +168,9 @@ func (c *baseCrawler) Setup() {
 	c.setup(DEFAULT_DL_JOBS)
 }
 
-//Finish() is a default cleanup function for crawlers, If baseCrawler's Setup() or setup() method was used
-//Finish() closes baseCrawler's DownloadDispatcher and yields until all Downloads have been finished.
-//Otherwise it does nothing.
+// Finish() is a default cleanup function for crawlers, If baseCrawler's Setup() or setup() method was used
+// Finish() closes baseCrawler's DownloadDispatcher and yields until all Downloads have been finished.
+// Otherwise it does nothing.
 func (c *baseCrawler) Finish() {
 	if c.yield != nil {
 		c.dispatcher.Close()
@@ -178,7 +178,7 @@ func (c *baseCrawler) Finish() {
 	}
 }
 
-//FileCrawler is a crawler that treats every input from the pager as a file that needs to be downloaded.
+// FileCrawler is a crawler that treats every input from the pager as a file that needs to be downloaded.
 type FileCrawler struct {
 	*baseCrawler
 }
@@ -324,7 +324,7 @@ func (r *VBAttachmentCrawler) vb4PostList(node *html.Node) []*vbpost {
 	vbposts := make([]*vbpost, len(nodes))
 	for i := range nodes {
 		vbposts[i] = (*vbpost)(nodes[i])
-		if log.Level() == logger.Level_Debug {
+		if log.Level() == logger.LevelDebug {
 			log.Debug(fmt.Sprintf("VBAttachmentCrawler: found post %q", vbposts[i].id()))
 		}
 	}
@@ -346,7 +346,7 @@ func (r *vbpost) attachments() []*vbattachment {
 	vb4att := make([]*vbattachment, len(nodes))
 	for i := range nodes {
 		vb4att[i] = (*vbattachment)(nodes[i])
-		if log.Level() == logger.Level_Debug {
+		if log.Level() == logger.LevelDebug {
 			var id string
 			for _, attr := range nodes[i].Attr {
 				if attr.Key == "id" {

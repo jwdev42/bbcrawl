@@ -5,7 +5,7 @@ package download
 
 import "fmt"
 
-//RenameError is thrown if renaming a downloaded file fails.
+// RenameError is thrown if renaming a downloaded file fails.
 type RenameError struct {
 	oldname *string
 	newname *string

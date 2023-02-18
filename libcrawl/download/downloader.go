@@ -98,8 +98,8 @@ func (dl *Download) Dir() string {
 	return dl.dir
 }
 
-//Exists returns true if there already is a file named the same as specified in the Download struct.
-//Panics if the field "dir" or "file" is zero-valued.
+// Exists returns true if there already is a file named the same as specified in the Download struct.
+// Panics if the field "dir" or "file" is zero-valued.
 func (dl *Download) Exists() (bool, error) {
 	f, err := os.Open(dl.Path())
 	defer f.Close()
@@ -142,7 +142,7 @@ func (dl *Download) NameFromHeader() (string, error) {
 	return filename, nil
 }
 
-//Path returns the absolute path to the (to be) downloaded file. Panics if the field "dir" or "file" is zero-valued.
+// Path returns the absolute path to the (to be) downloaded file. Panics if the field "dir" or "file" is zero-valued.
 func (dl *Download) Path() string {
 	if dl.dir == "" || dl.file == "" {
 		panic("a Download struct must have valid \"dir\" and \"file\" fields before Path() can be called")
@@ -150,7 +150,7 @@ func (dl *Download) Path() string {
 	return filepath.Join(dl.dir, dl.file)
 }
 
-//Rename changes the file name of a download. If the download already exists, it will be renamed on the file system.
+// Rename changes the file name of a download. If the download already exists, it will be renamed on the file system.
 func (dl *Download) Rename(name string) error {
 	dl.checkFilename(name)
 	file, err := os.Open(dl.Path())
@@ -178,7 +178,7 @@ func (dl *Download) Rename(name string) error {
 	return nil
 }
 
-//SetDir sets the download directory. Panics if dir is not an absolute path.
+// SetDir sets the download directory. Panics if dir is not an absolute path.
 func (dl *Download) SetDir(dir string) error {
 	if !filepath.IsAbs(dir) {
 		panic("dir must be an absolute path")
@@ -323,7 +323,7 @@ func isHttpFileNameField(input string) bool {
 	return false
 }
 
-//httpFileNameValue returns the filename of a "Content-disposition" HTTP header field, if it is not a filename, it returns "".
+// httpFileNameValue returns the filename of a "Content-disposition" HTTP header field, if it is not a filename, it returns "".
 func httpFileNameFieldValue(input string) string {
 	splitted := strings.Split(input, "=")
 	if len(splitted) != 2 {

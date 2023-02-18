@@ -18,8 +18,8 @@ func fileNameFromURL(url *url.URL) string {
 	return name
 }
 
-//baseURLOnly returns a new url that has the same host and the same scheme as the src argument, but no path and no query string.
-//Panics if the src argument is a relative url or nil.
+// baseURLOnly returns a new url that has the same host and the same scheme as the src argument, but no path and no query string.
+// Panics if the src argument is a relative url or nil.
 func baseURLOnly(src *url.URL) (*url.URL, error) {
 	if len(src.Hostname()) == 0 {
 		panic("relative URLs are not supported!")
@@ -48,7 +48,7 @@ func rel2absURL(domain *url.URL, url *url.URL) (*url.URL, error) {
 	}
 }
 
-//Standard url validation function a pager's SetUrl-method can call
+// Standard url validation function a pager's SetUrl-method can call
 func url_for_pager(addr string) (*url.URL, error) {
 	u, err := url.Parse(addr)
 	if err != nil {

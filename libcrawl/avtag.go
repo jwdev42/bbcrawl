@@ -36,7 +36,7 @@ func (r avTag) addSrc(src string) error {
 	return nil
 }
 
-//internal use only
+// internal use only
 func (r avTag) randomName(name string) string {
 	ext := path.Ext(name)
 	b := new(strings.Builder)

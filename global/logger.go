@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-const Default_Loglevel = logger.Level_Error
+const Default_Loglevel = logger.LevelError
 
 var log = logger.New(os.Stdout, Default_Loglevel, " - ")
 

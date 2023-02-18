@@ -136,7 +136,7 @@ func (r *SrcCrawler) download(page *url.URL, link, dir, name string) error {
 	return nil
 }
 
-//scrapeAV searches for sources inside an audio or video tag and its children and downloads them
+// scrapeAV searches for sources inside an audio or video tag and its children and downloads them
 func (r *SrcCrawler) scrapeAV(page *url.URL, node *html.Node) error {
 	const attr_src = "src"
 	downloads := make([]string, 0, 5)
@@ -185,7 +185,7 @@ func (r *SrcCrawler) scrapeAV(page *url.URL, node *html.Node) error {
 	return nil
 }
 
-//uniqueName constructs a unique file name by extracting the input url's file extension and combining it with a unique string
+// uniqueName constructs a unique file name by extracting the input url's file extension and combining it with a unique string
 func (r *SrcCrawler) uniqueName(s string) (string, error) {
 	var suffix string
 	u, err := url.Parse(s)

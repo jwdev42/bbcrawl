@@ -51,7 +51,7 @@ type CrawlContext struct {
 	Crawler CrawlerInterface
 }
 
-//Parse global options and attach them to the CrawlContext
+// Parse global options and attach them to the CrawlContext
 func (cc *CrawlContext) SetOptions(args []string) error {
 	flagSet := flag.NewFlagSet("GlobalOptions", flag.ContinueOnError)
 	outputDir := &cmdline.FSDirectory{}

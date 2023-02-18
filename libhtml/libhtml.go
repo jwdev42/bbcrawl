@@ -27,8 +27,8 @@ func walkTree(n *html.Node, pre, post func(*html.Node) bool) bool {
 
 //BEGIN: Functions to be used as pre or post with walktree
 
-//matchAttrVal add Node n and child nodes to the nodecollection nc if the regex val matches
-//the value of the attribute specified with key
+// matchAttrVal add Node n and child nodes to the nodecollection nc if the regex val matches
+// the value of the attribute specified with key
 func matchAttrVal(nc *nodecollection, key string, val *regexp.Regexp) func(n *html.Node) bool {
 	return func(node *html.Node) bool {
 		for _, a := range node.Attr {

@@ -88,7 +88,7 @@ func (p *EndPage) String() string {
 	return strconv.Itoa(p.End)
 }
 
-//URLCollection is used to convert a comma seperated string of raw urls into a slice of pointers to URL types.
+// URLCollection is used to convert a comma seperated string of raw urls into a slice of pointers to URL types.
 type URLCollection struct {
 	URLs []*url.URL
 }
