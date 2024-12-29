@@ -1,8 +1,8 @@
-github.com/jwdev42/cookiefile v0.1.2 h1:3xa+Jj5iHoLo7EiLqaDK+P0SQriX7EVklF8RVphh/mc=
-github.com/jwdev42/cookiefile v0.1.2/go.mod h1:OXKjpI4isBNocgkPnaEx3SXSBOYia/eAPgnkO1OQBgI=
+github.com/jwdev42/cookiefile v0.1.3 h1:DGgroDokcEJkGFSj/pwrhuroZj07KCPXGtgDA25miqk=
+github.com/jwdev42/cookiefile v0.1.3/go.mod h1:CaBXy/87AIIjN0iUks/3KWVsu2r3fxF6rxusv87DM38=
 github.com/jwdev42/logger v0.2.1 h1:OvzPYsHqh/CBsbtsfrnVh+8f9ABdFLm7cRaWB2xFe+Q=
 github.com/jwdev42/logger v0.2.1/go.mod h1:EIu0oxc2tArYy4+/FhSEmqBVOKByji/Ri1aB3yAXEGA=
-golang.org/x/net v0.7.0 h1:rJrUqqhjsgNp7KqAIc25s9pZnjU7TUcSY7HcVZjdn1g=
-golang.org/x/net v0.7.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
-golang.org/x/text v0.7.0 h1:4BRB4x83lYWy72KwLD/qYDuTu7q9PjSagHvijDw7cLo=
-golang.org/x/text v0.7.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
+golang.org/x/net v0.33.0 h1:74SYHlV8BIgHIFC/LrYkOGIwL19eTYXQ5wc6TBuO36I=
+golang.org/x/net v0.33.0/go.mod h1:HXLR5J+9DxmrqMwG9qjGCxZ+zKXxBru04zlTvWlWuN4=
+golang.org/x/text v0.21.0 h1:zyQAAkrwaneQ066sspRyJaG9VNi/YJ1NfzcGB3hZ/qo=
+golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=
